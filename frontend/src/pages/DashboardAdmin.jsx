@@ -12,6 +12,9 @@ export default function DashboardAdmin() {
   // 🔹 State untuk pagination data karyawan
   const [currentPage, setCurrentPage] = useState(1);
   const limit = 20;
+  // 🔹 State untuk pagination data Izin
+  const [izinPage, setIzinPage] = useState(1);
+  const izinLimit = 10;
 
 
   const handleLogout = () => {
@@ -27,7 +30,6 @@ export default function DashboardAdmin() {
   const id_perusahaan = localStorage.getItem("id_perusahaan");
 
   // ✅ React Query hook untuk caching data karyawan
-
   // ✅ React Query untuk ambil data karyawan per halaman
   const {
     data: karyawanData = { data: [], total: 0 },
@@ -105,9 +107,11 @@ export default function DashboardAdmin() {
   //    GET /api/presensi/shift
   // Lalu hasilnya disimpan ke state `shiftData` untuk ditampilkan di tabel shift admin.
   const fetchShift = async () => {
-    const res = await axios.get("/api/presensi/shift");
+    const id_perusahaan = localStorage.getItem("id_perusahaan");
+    const res = await axios.get(`/api/admin/shift/${id_perusahaan}`);
     setShiftData(res.data.data);
   };
+
 
 
 
@@ -120,10 +124,18 @@ export default function DashboardAdmin() {
   // - Menutup modal form dengan `setShowShiftForm(false)`
   const handleAddShift = async (e) => {
     e.preventDefault();
-    await axios.post("/api/presensi/shift", shiftForm);
-    fetchShift();
+    const id_perusahaan = localStorage.getItem("id_perusahaan");
+
+    await axios.post("/api/admin/shift", {
+      ...shiftForm,
+      id_perusahaan, // 🟢 wajib
+    });
+
+    fetchShiftList();
     setShowShiftForm(false);
+    setShiftForm({ nama_shift: "", jam_masuk: "", jam_pulang: "", hari_shift: "" });
   };
+
 
 
 
@@ -200,7 +212,68 @@ export default function DashboardAdmin() {
       console.error("❌ Gagal memuat daftar shift:", err);
     }
   };
+  // ===================================================
+  // ---------------Edit Shift Func----------------------
+  // ====================================================
+  const handleEditShift = (shift) => {
+    setShiftForm({
+      id_shift: shift.id_shift,
+      nama_shift: shift.nama_shift,
+      jam_masuk: shift.jam_masuk,
+      jam_pulang: shift.jam_pulang,
+      hari_shift: shift.hari_shift,
+    });
+    setEditShift(true);
+    setShowShiftForm(true);
+  };
 
+
+  const handleSaveEditShift = async (e) => {
+    e.preventDefault();
+
+    await axios.put(`/api/admin/shift/${shiftForm.id_shift}`, {
+      nama_shift: shiftForm.nama_shift,
+      jam_masuk: shiftForm.jam_masuk,
+      jam_pulang: shiftForm.jam_pulang,
+      hari_shift: shiftForm.hari_shift,
+    });
+
+    fetchShiftList();
+    setShowShiftForm(false);
+    setEditShift(false);
+  };
+
+  const handleDeleteShift = async (id_shift) => {
+    if (confirm("Yakin ingin menghapus shift ini?")) {
+      await axios.delete(`/api/admin/shift/${id_shift}`);
+      fetchShiftList();
+    }
+  };
+
+  // ==============================================
+  // ---------------Verifikasi Izin----------------
+  // ===============================================
+
+  const fetchIzinList = async () => {
+    const res = await axios.get(
+      `/api/admin/izin/${id_perusahaan}?page=${izinPage}&limit=${izinLimit}`
+    );
+    setIzinData(res.data.data);
+    setTotalIzin(res.data.total);
+  };
+
+  useEffect(() => {
+    if (page === "izin") fetchIzinList();
+  }, [page, izinPage]);
+
+
+  const handleVerifikasiIzin = async (id_izin, status) => {
+    await axios.patch(`/api/admin/izin/${id_izin}`, {
+      status_persetujuan: status,
+      id_verifikator: localStorage.getItem("id_akun"),
+    });
+    fetchIzinList();
+  };
 
   return (
     <div className="min-h-screen bg-gray-100">
@@ -449,11 +522,17 @@ export default function DashboardAdmin() {
               <div className="flex justify-between mb-4">
                 <h3 className="font-semibold">Daftar Shift Kerja</h3>
                 <button
-                  onClick={() => setShowShiftForm(true)}
+                  onClick={() => {
+                    setShiftForm({ nama_shift: "", jam_masuk: "", jam_pulang: "", hari_shift: "" });
+                    setEditShift(false);
+                    setShowShiftForm(true);
+                  }}
                   className="bg-indigo-600 text-white px-4 py-2 rounded"
                 >
                   + Tambah Shift
                 </button>
+
+
               </div>
 
               {/* Modal Form Tambah/Edit Shift */}
@@ -463,10 +542,8 @@ export default function DashboardAdmin() {
                     <h3 className="font-bold mb-3">
                       {editShift ? "Edit Shift" : "Tambah Shift"}
                     </h3>
-                    <form
-                      onSubmit={editShift ? handleEditShift : handleAddShift}
-                      className="space-y-3"
-                    >
+                    <form onSubmit={editShift ? handleSaveEditShift : handleAddShift} className="space-y-3">
+
                       <input
                         name="nama_shift"
                         placeholder="Nama Shift"
@@ -529,15 +606,30 @@ export default function DashboardAdmin() {
                     <th className="p-2 border">Jam Masuk</th>
                     <th className="p-2 border">Jam Pulang</th>
                     <th className="p-2 border">Hari</th>
+                    <th className="p-2 border">Aksi</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {shiftData.map((s) => (
+                  {shiftList.map((s) => (
                     <tr key={s.id_shift}>
                       <td className="border p-2">{s.nama_shift}</td>
                       <td className="border p-2">{s.jam_masuk}</td>
                       <td className="border p-2">{s.jam_pulang}</td>
                       <td className="border p-2">{s.hari_shift}</td>
+                      <td className="border p-2 space-x-2">
+                        <button
+                          onClick={() => handleEditShift(s)}
+                          className="bg-yellow-400 px-3 py-1 rounded text-white"
+                        >
+                          ✏️ Edit
+                        </button>
+                        <button
+                          onClick={() => handleDeleteShift(s.id_shift)}
+                          className="bg-red-500 px-3 py-1 rounded text-white"
+                        >
+                          🗑 Hapus
+                        </button>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -550,9 +642,6 @@ export default function DashboardAdmin() {
         {page === "izin" && (
           <section>
             <h2 className="text-xl font-bold mb-4">📝 Verifikasi Izin / WFH</h2>
-            <p className="text-gray-600 mb-4">
-              Halaman ini menampilkan daftar pengajuan izin/WFH dari karyawan untuk diverifikasi oleh admin.
-            </p>
 
             <div className="bg-white p-6 rounded-lg shadow">
               <table className="min-w-full border text-sm">
@@ -563,7 +652,6 @@ export default function DashboardAdmin() {
                     <th className="p-2 border">Tanggal</th>
                     <th className="p-2 border">Alasan</th>
                     <th className="p-2 border">Status</th>
-                    <th className="p-2 border">Aksi</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -572,31 +660,60 @@ export default function DashboardAdmin() {
                       <td className="border p-2">{i.akun?.username}</td>
                       <td className="border p-2">{i.jenis_izin}</td>
                       <td className="border p-2">
-                        {i.tanggal_mulai} – {i.tanggal_selesai}
+                        {i.tanggal_mulai} → {i.tanggal_selesai}
                       </td>
                       <td className="border p-2">{i.alasan}</td>
-                      <td className="border p-2 font-semibold">{i.status_persetujuan}</td>
-                      <td className="border p-2 space-x-2">
-                        <button
-                          onClick={() => verifikasiIzin(i.id_izin, "DISETUJUI")}
-                          className="bg-green-500 text-white px-3 py-1 rounded"
+                      <td className="border p-2">
+                        <select
+                          value={i.status_persetujuan}
+                          onChange={async (e) => {
+                            await axios.patch(`/api/admin/izin/${i.id_izin}`, {
+                              status_persetujuan: e.target.value,
+                              id_verifikator: localStorage.getItem("id_akun"),
+                            });
+                            fetchIzinList(); // refresh tabel
+                          }}
+                          className={`border p-2 rounded w-full ${i.status_persetujuan === "DISETUJUI"
+                            ? "bg-green-100 text-green-700"
+                            : i.status_persetujuan === "DITOLAK"
+                              ? "bg-red-100 text-red-700"
+                              : "bg-yellow-100 text-yellow-700"
+                            }`}
                         >
-                          Setujui
-                        </button>
-                        <button
-                          onClick={() => verifikasiIzin(i.id_izin, "DITOLAK")}
-                          className="bg-red-500 text-white px-3 py-1 rounded"
-                        >
-                          Tolak
-                        </button>
+                          <option value="PENDING">PENDING</option>
+                          <option value="DISETUJUI">DISETUJUI</option>
+                          <option value="DITOLAK">DITOLAK</option>
+                        </select>
                       </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
+              <div className="flex justify-center gap-2 mt-4">
+                <button
+                  disabled={izinPage === 1}
+                  onClick={() => setIzinPage(izinPage - 1)}
+                  className="px-3 py-1 bg-gray-200 rounded disabled:opacity-50"
+                >
+                  ◀️ Previous
+                </button>
+
+                <span>Halaman {izinPage}</span>
+
+                <button
+                  disabled={izinData.length < izinLimit}
+                  onClick={() => setIzinPage(izinPage + 1)}
+                  className="px-3 py-1 bg-gray-200 rounded disabled:opacity-50"
+                >
+                  Next ▶️
+                </button>
+              </div>
+
             </div>
           </section>
         )}
+
+
 
 
         {/* ---------------- REKAP & REWARD ---------------- */}

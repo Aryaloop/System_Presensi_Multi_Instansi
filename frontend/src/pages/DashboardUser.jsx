@@ -38,6 +38,11 @@ export default function DashboardUser() {
   const [jamShift, setJamShift] = useState(null);
   const [statusArea, setStatusArea] = useState("...");
 
+  // -----------komponen informasi izin dan wakti wfh ----------------
+  const [izinPending, setIzinPending] = useState(0);
+  const [wfhBulanIni, setWfhBulanIni] = useState(0);
+
+
   // --------- NAV / LAYOUT ----------
   const [page, setPage] = useState("dashboard"); // dashboard | absen | izin | kalender | data | pengaturan
 
@@ -59,6 +64,7 @@ export default function DashboardUser() {
   const [tanggal_selesai, setTanggalSelesai] = useState("");
   const [alasan, setAlasan] = useState("");
   const [keterangan, setKeterangan] = useState("");
+
 
 
 
@@ -163,6 +169,17 @@ export default function DashboardUser() {
       setStatusArea(jarak <= lokasiKantor.radius_m ? "Dalam Area" : "Luar Area");
     }
   }, [lokasiKantor, coords]);
+  // load data izin 
+useEffect(() => {
+  axios.get(`/api/user/izin/summary/${idAkun}`)
+    .then((res) => {
+      setIzinPending(res.data.pending);
+      setWfhBulanIni(res.data.totalWFH);
+    })
+}, [idAkun]);
+
+
+
 
   // Konfirmasi Absen Keluar
   const handleConfirmKeluar = () => {
@@ -295,20 +312,22 @@ export default function DashboardUser() {
       <div className="bg-white rounded-xl border p-4">
         <p className="text-xs text-gray-500">Izin Pending</p>
         <div className="mt-1 flex items-center justify-between">
-          <div className="text-sm font-semibold text-gray-800">2</div>
+          <div className="text-sm font-semibold text-gray-800">{izinPending}</div>
           <span className="text-xs px-2 py-0.5 rounded-md bg-yellow-100 text-yellow-700">⏳</span>
         </div>
         <p className="text-[11px] text-gray-400 mt-1">Menunggu Approval</p>
       </div>
 
+
       <div className="bg-white rounded-xl border p-4">
         <p className="text-xs text-gray-500">WFH Bulan Ini</p>
         <div className="mt-1 flex items-center justify-between">
-          <div className="text-sm font-semibold text-gray-800">{totalWFH} Hari</div>
+          <div className="text-sm font-semibold text-gray-800">{wfhBulanIni} Hari</div>
           <span className="text-xs px-2 py-0.5 rounded-md bg-purple-100 text-purple-700">🏠</span>
         </div>
         <p className="text-[11px] text-gray-400 mt-1">Work From Home</p>
       </div>
+
     </div>
   );
 

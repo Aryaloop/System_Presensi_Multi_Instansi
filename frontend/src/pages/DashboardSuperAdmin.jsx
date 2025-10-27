@@ -36,33 +36,39 @@ export default function DashboardSuperAdmin() {
     id_perusahaan: "",
   });
   const [isSaving, setIsSaving] = useState(false);
+  const [perusahaanPage, setPerusahaanPage] = useState(1);
+  const perusahaanLimit = 10;
+
+  const [adminPage, setAdminPage] = useState(1);
+  const adminLimit = 10;
+
 
   // ✅ React Query ambil data
   const {
-    data: perusahaan = [],
+    data: perusahaanData,
     isLoading: loadingPerusahaan,
-    isError: errorPerusahaan,
   } = useQuery({
-    queryKey: ["perusahaan"],
-    queryFn: async () => (await axios.get("/api/superadmin/perusahaan")).data,
-    onError: (err) => {
-      console.error("❌ Gagal ambil perusahaan:", err);
-      Swal.fire("Error", "Gagal memuat data perusahaan.", "error");
-    },
+    queryKey: ["perusahaan", perusahaanPage],
+    queryFn: async () =>
+      (await axios.get(`/api/superadmin/perusahaan?page=${perusahaanPage}&limit=${perusahaanLimit}`)).data,
   });
 
+  const perusahaan = perusahaanData?.data || [];
+  const perusahaanTotal = perusahaanData?.total || 0;
+
+
   const {
-    data: admins = [],
+    data: adminData,
     isLoading: loadingAdmins,
-    isError: errorAdmins,
   } = useQuery({
-    queryKey: ["admins"],
-    queryFn: async () => (await axios.get("/api/superadmin/admins")).data,
-    onError: (err) => {
-      console.error("❌ Gagal ambil admin:", err);
-      Swal.fire("Error", "Gagal memuat data admin.", "error");
-    },
+    queryKey: ["admins", adminPage],
+    queryFn: async () =>
+      (await axios.get(`/api/superadmin/admins?page=${adminPage}&limit=${adminLimit}`)).data,
   });
+
+  const admins = adminData?.data || [];
+  const adminTotal = adminData?.total || 0;
+
 
   // 🧩 Logout
   const handleLogout = () => {
@@ -95,7 +101,8 @@ export default function DashboardSuperAdmin() {
     try {
       await axios.post("/api/superadmin/perusahaan", form);
       setShowForm(false);
-      queryClient.invalidateQueries(["perusahaan"]);
+      queryClient.invalidateQueries({ queryKey: ["perusahaan"] });
+
       Swal.fire("Berhasil", "Perusahaan berhasil ditambahkan.", "success");
     } catch {
       Swal.fire("Gagal", "Tidak dapat menambahkan perusahaan.", "error");
@@ -170,7 +177,8 @@ export default function DashboardSuperAdmin() {
       setIsSaving(true);
       const res = await axios.post("/api/superadmin/create-admin", formAdmin);
       Swal.fire("Berhasil", res.data.message || "Admin berhasil ditambahkan.", "success");
-      queryClient.invalidateQueries(["admins"]);
+      queryClient.invalidateQueries({ queryKey: ["admins"] });
+
       setShowFormAdmin(false);
     } catch (err) {
       Swal.fire("Gagal", err.response?.data?.message || "Gagal menambah admin.", "error");
@@ -352,8 +360,8 @@ export default function DashboardSuperAdmin() {
                           <button
                             onClick={() => handleSuspend(p.id_perusahaan, !p.status_aktif)}
                             className={`px-3 py-1 rounded ${p.status_aktif
-                                ? "bg-red-500 text-white"
-                                : "bg-green-500 text-white"
+                              ? "bg-red-500 text-white"
+                              : "bg-green-500 text-white"
                               }`}
                           >
                             {p.status_aktif ? "Suspend" : "Aktifkan"}
@@ -364,6 +372,27 @@ export default function DashboardSuperAdmin() {
                 </tbody>
               </table>
             )}
+            <div className="flex justify-center gap-2 mt-4">
+              <button
+                disabled={perusahaanPage === 1}
+                onClick={() => setPerusahaanPage(perusahaanPage - 1)}
+                className="px-3 py-1 bg-gray-200 rounded disabled:opacity-50"
+              >
+                ◀️ Prev
+              </button>
+
+              <span className="px-3 py-1">Halaman {perusahaanPage}</span>
+
+              <button
+                disabled={perusahaan.length < perusahaanLimit}
+                onClick={() => setPerusahaanPage(perusahaanPage + 1)}
+                className="px-3 py-1 bg-gray-200 rounded disabled:opacity-50"
+              >
+                Next ▶️
+              </button>
+            </div>
+
+
           </section>
         )}
 
@@ -434,8 +463,8 @@ export default function DashboardSuperAdmin() {
                         type="submit"
                         disabled={isSaving}
                         className={`px-3 py-1 text-white rounded ${isSaving
-                            ? "bg-indigo-300 cursor-not-allowed"
-                            : "bg-indigo-600 hover:bg-indigo-700"
+                          ? "bg-indigo-300 cursor-not-allowed"
+                          : "bg-indigo-600 hover:bg-indigo-700"
                           }`}
                       >
                         {isSaving ? "Menyimpan..." : "Simpan"}
@@ -483,6 +512,26 @@ export default function DashboardSuperAdmin() {
                 </tbody>
               </table>
             )}
+            <div className="flex justify-center gap-2 mt-4">
+              <button
+                disabled={adminPage === 1}
+                onClick={() => setAdminPage(adminPage - 1)}
+                className="px-3 py-1 bg-gray-200 rounded disabled:opacity-50"
+              >
+                ◀️ Prev
+              </button>
+
+              <span className="px-3 py-1">Halaman {adminPage}</span>
+
+              <button
+                disabled={admins.length < adminLimit}
+                onClick={() => setAdminPage(adminPage + 1)}
+                className="px-3 py-1 bg-gray-200 rounded disabled:opacity-50"
+              >
+                Next ▶️
+              </button>
+            </div>
+
           </section>
         )}
       </main>

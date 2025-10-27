@@ -12,13 +12,14 @@ const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY
 
 // 📍 API: Absen GPS
 // 📍 API: Absen GPS
+// 📍 API: Absen GPS (MASUK / KELUAR)
 router.post("/absen", async (req, res) => {
   try {
-    const { id_akun, latitude, longitude } = req.body;
-    if (!id_akun || !latitude || !longitude)
+    const { id_akun, latitude, longitude, tipe } = req.body;
+    if (!id_akun || !latitude || !longitude || !tipe)
       return res.status(400).json({ success: false, message: "Data tidak lengkap." });
 
-    // 1️⃣ Ambil data akun (termasuk id_shift & id_perusahaan)
+    // 1️⃣ Ambil data akun
     const { data: akun, error: akunError } = await supabase
       .from("akun")
       .select("id_perusahaan, id_shift")
@@ -28,43 +29,33 @@ router.post("/absen", async (req, res) => {
     if (akunError || !akun)
       return res.status(404).json({ success: false, message: "Akun tidak ditemukan." });
 
-    // 2️⃣ Cek apakah sudah absen hari ini
+    // 2️⃣ Tentukan tanggal hari ini
     const todayStart = new Date();
     todayStart.setHours(0, 0, 0, 0);
     const todayEnd = new Date();
     todayEnd.setHours(23, 59, 59, 999);
 
-    const { data: existing, error: checkError } = await supabase
+    // 3️⃣ Cek apakah sudah ada absen hari ini
+    const { data: existing } = await supabase
       .from("kehadiran")
-      .select("id_kehadiran")
+      .select("*")
       .eq("id_akun", id_akun)
       .gte("created_at", todayStart.toISOString())
       .lte("created_at", todayEnd.toISOString())
       .maybeSingle();
 
-    if (checkError) throw checkError;
-    if (existing)
-      return res.status(400).json({
-        success: false,
-        message: "Kamu sudah melakukan presensi hari ini.",
-      });
-
-    // 3️⃣ Ambil lokasi perusahaan
-    const { data: perusahaan, error: perusahaanError } = await supabase
+    // 4️⃣ Ambil lokasi kantor
+    const { data: perusahaan } = await supabase
       .from("perusahaan")
       .select("latitude, longitude, radius_m")
       .eq("id_perusahaan", akun.id_perusahaan)
       .single();
 
-    if (perusahaanError || !perusahaan)
-      return res.status(404).json({ success: false, message: "Perusahaan tidak ditemukan." });
-
-    // 4️⃣ Hitung jarak antara user dan kantor
+    // 5️⃣ Cek radius lokasi
     const jarak = getDistance(
       { latitude: Number(latitude), longitude: Number(longitude) },
       { latitude: perusahaan.latitude, longitude: perusahaan.longitude }
     );
-
     if (jarak > perusahaan.radius_m) {
       return res.status(403).json({
         success: false,
@@ -72,48 +63,110 @@ router.post("/absen", async (req, res) => {
       });
     }
 
-    // 5️⃣ Ambil jam shift untuk menentukan terlambat atau tidak
-    let status = "HADIR";
-    if (akun.id_shift) {
-      const { data: shift } = await supabase
+    // 6️⃣ Logika Absen
+    if (tipe === "MASUK") {
+      if (existing) {
+        return res.status(400).json({ success: false, message: "Sudah absen masuk hari ini." });
+      }
+
+      // Ambil shift untuk cek terlambat
+      let status = "HADIR";
+      if (akun.id_shift) {
+        const { data: shift } = await supabase
+          .from("shift")
+          .select("jam_masuk")
+          .eq("id_shift", akun.id_shift)
+          .maybeSingle();
+
+        if (shift && shift.jam_masuk) {
+          const now = new Date();
+          const [h, m] = shift.jam_masuk.split(":");
+          const jamShift = new Date(now);
+          jamShift.setHours(h, m, 0);
+          if (now > jamShift) status = "TERLAMBAT";
+        }
+      }
+
+      // Simpan data absen masuk
+      await supabase.from("kehadiran").insert([
+        {
+          id_akun,
+          id_shift: akun.id_shift,
+          jam_masuk: new Date(),
+          status,
+          latitude_absen: latitude,
+          longitude_absen: longitude,
+          id_perusahaan: akun.id_perusahaan,
+        },
+      ]);
+
+      return res.json({ success: true, message: "Absen masuk berhasil disimpan." });
+    }
+
+    // ===== Absen Keluar =====
+    if (tipe === "KELUAR") {
+      // 1️⃣ Cek apakah sudah ada absen masuk
+      if (!existing) {
+        return res.status(400).json({
+          success: false,
+          message: "Belum ada absen masuk hari ini.",
+        });
+      }
+
+      // 2️⃣ Ambil jam pulang shift dari database
+      const { data: shift, error: shiftError } = await supabase
         .from("shift")
-        .select("jam_masuk")
+        .select("jam_pulang")
         .eq("id_shift", akun.id_shift)
         .maybeSingle();
 
-      if (shift && shift.jam_masuk) {
-        const now = new Date();
-        const [h, m] = shift.jam_masuk.split(":");
-        const jamShift = new Date(now);
-        jamShift.setHours(h, m, 0);
-
-        if (now > jamShift) status = "TERLAMBAT";
+      if (shiftError) {
+        return res.status(500).json({
+          success: false,
+          message: "Gagal mengambil data shift.",
+        });
       }
+
+      // 3️⃣ Jika jam_pulang belum diatur oleh admin
+      if (!shift?.jam_pulang) {
+        return res.status(400).json({
+          success: false,
+          message: "Data jam pulang pada shift belum diatur oleh admin.",
+        });
+      }
+
+      // 4️⃣ Validasi waktu minimal jam_pulang >= jam_pulang shift
+      const now = new Date();
+      const [sh, sm] = shift.jam_pulang.split(":");
+      const waktuPulangShift = new Date(now);
+      waktuPulangShift.setHours(parseInt(sh), parseInt(sm), 0);
+
+      if (now < waktuPulangShift) {
+        return res.status(403).json({
+          success: false,
+          message: `Belum waktunya pulang. Jam pulang shift kamu: ${shift.jam_pulang} WIB.`,
+        });
+      }
+
+      // 5️⃣ Update jam_pulang di record kehadiran hari ini
+      const { error: updateError } = await supabase
+        .from("kehadiran")
+        .update({ jam_pulang: new Date() })
+        .eq("id_kehadiran", existing.id_kehadiran);
+
+      if (updateError) throw updateError;
+
+      // 6️⃣ Beri respon sukses
+      return res.json({ success: true, message: "Jam pulang berhasil disimpan." });
     }
 
-    // 6️⃣ Simpan ke tabel kehadiran
-    const { error: insertError } = await supabase.from("kehadiran").insert([{
-      id_akun,
-      id_shift: akun.id_shift,
-      jam_masuk: new Date(),
-      status,
-      latitude_absen: latitude,
-      longitude_absen: longitude,
-      id_perusahaan: akun.id_perusahaan,
-    }]);
-
-    if (insertError) throw insertError;
-
-    res.json({
-      success: true,
-      message: `Presensi berhasil disimpan. Status: ${status}`,
-    });
-
+    return res.status(400).json({ success: false, message: "Tipe absen tidak valid." });
   } catch (error) {
     console.error("❌ Error absen:", error);
     res.status(500).json({ success: false, message: "Terjadi kesalahan server." });
   }
 });
+
 
 
 // 📅 GET: Data kehadiran berdasarkan bulan & tahun (versi RPC)

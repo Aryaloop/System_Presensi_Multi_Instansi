@@ -164,6 +164,40 @@ export default function DashboardUser() {
     }
   }, [lokasiKantor, coords]);
 
+  // Konfirmasi Absen Keluar
+  const handleConfirmKeluar = () => {
+    Swal.fire({
+      title: "Konfirmasi Absen Pulang",
+      html: `
+      <p class="text-sm text-gray-600 mb-1">
+        Pastikan kamu benar-benar sudah menyelesaikan pekerjaan hari ini.
+      </p>
+      <p class="text-xs text-gray-500">
+        Setelah dikonfirmasi, data <b>jam pulang</b> akan disimpan di sistem dan tidak bisa diubah.
+      </p>
+    `,
+      icon: "question",
+      showCancelButton: true,
+      confirmButtonText: "Ya, saya sudah selesai",
+      cancelButtonText: "Batal",
+      confirmButtonColor: "#dc2626", // merah khas tombol keluar
+      cancelButtonColor: "#6b7280",
+    }).then((result) => {
+      if (result.isConfirmed) {
+        handleAttendance("KELUAR"); // kirim request ke backend
+      } else {
+        Swal.fire({
+          title: "Dibatalkan",
+          text: "Absen pulang dibatalkan, kamu masih dianggap bekerja.",
+          icon: "info",
+          timer: 2000,
+          showConfirmButton: false,
+        });
+      }
+    });
+  };
+
+
 
   // ======= KALENDER =======
   const fetchKehadiran = async (bulan, tahun) => {
@@ -299,15 +333,19 @@ export default function DashboardUser() {
             </span>
           </button>
           <button
-            onClick={() => handleAttendance("KELUAR")}
-            disabled={loading}
-            className="h-12 rounded-lg bg-red-600 text-white font-semibold hover:bg-red-700 transition"
+            onClick={() => handleConfirmKeluar()} // ganti fungsi trigger-nya
+            disabled={loading || attendanceStatus !== "sudah"} // hanya aktif jika sudah absen masuk
+            className={`h-12 rounded-lg text-white font-semibold transition ${loading || attendanceStatus !== "sudah"
+              ? "bg-gray-400 cursor-not-allowed"
+              : "bg-red-600 hover:bg-red-700"
+              }`}
           >
-            Absen Keluar
+            Absen Pulang
             <span className="block text-[11px] font-normal">
               {jamShift?.jam_pulang ? `${jamShift.jam_pulang} WIB` : "Memuat..."}
             </span>
           </button>
+
         </div>
 
         <div className="mt-4 rounded-lg bg-gray-50 border p-3">

@@ -17,6 +17,8 @@ router.use(compression());
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
 const makeShiftId = customAlphabet("ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789", 8);
 
+
+
 // GET: ambil data karyawan berdasarkan perusahaan (dengan pagination)
 router.get("/api/admin/karyawan/:id_perusahaan", async (req, res) => {
   const { id_perusahaan } = req.params;
@@ -264,7 +266,8 @@ router.patch("/api/admin/izin/:id_izin", async (req, res) => {
     const { id_izin } = req.params;
     const { status_persetujuan, id_verifikator, keterangan } = req.body;
 
-    const { data, error } = await supabase
+    // 1) Update status izin
+    const { data: izin, error } = await supabase
       .from("izin_wfh")
       .update({
         status_persetujuan,
@@ -278,11 +281,59 @@ router.patch("/api/admin/izin/:id_izin", async (req, res) => {
 
     if (error) throw error;
 
-    res.json({ message: "✅ Status izin diperbarui", data });
+    // ✅ Jika izin ditolak → selesai
+    if (status_persetujuan !== "DISETUJUI") {
+      return res.json({ message: "✅ Status izin diperbarui (DITOLAK)", izin });
+    }
+
+    // 2) Ambil info akun
+    const { data: akun } = await supabase
+      .from("akun")
+      .select("id_perusahaan, id_shift")
+      .eq("id_akun", izin.id_akun)
+      .single();
+
+    // 3) Generate tanggal per hari untuk diinput ke kehadiran
+    const start = new Date(izin.tanggal_mulai);
+    const end = new Date(izin.tanggal_selesai);
+
+    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+
+      // ⚠️ Cek dulu apakah sudah ada kehadiran untuk hari tersebut
+      const dayISO = d.toISOString().split("T")[0];
+      const { data: existed } = await supabase
+        .from("kehadiran")
+        .select("id_kehadiran")
+        .eq("id_akun", izin.id_akun)
+        .like("created_at", `${dayISO}%`);
+
+      if (existed?.length > 0) continue; // ⛔ Jangan duplikat
+
+      // ✅ Insert otomatis
+      await supabase.from("kehadiran").insert({
+        id_akun: izin.id_akun,
+        id_shift: akun.id_shift || null,
+        status: izin.jenis_izin.toUpperCase(), // IZIN / WFH
+        id_perusahaan: akun.id_perusahaan,
+        jam_masuk: null,
+        jam_pulang: null,
+        created_at: dayISO,
+      });
+    }
+
+    return res.json({
+      message: "✅ Izin DISETUJUI & kehadiran terisi otomatis",
+      izin,
+    });
+
   } catch (err) {
     console.error("❌ Error verifikasi izin:", err);
     res.status(500).json({ message: "Gagal memverifikasi izin" });
   }
 });
+
+
+// System otomatis isi tabel karyawan kehadiran
+
 
 export default router;

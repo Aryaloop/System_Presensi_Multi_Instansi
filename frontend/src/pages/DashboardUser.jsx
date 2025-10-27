@@ -49,8 +49,12 @@ export default function DashboardUser() {
   // --------- DATA USER (profil dari DB) ----------
   const [user, setUser] = useState({ nama: "-", email: "", jabatan: "Karyawan" });
 
-  // --------- ABSENSI ----------
-  const [attendanceStatus, setAttendanceStatus] = useState("belum"); // sudah/belum
+  // --------- ABSENSI ----------====================================================================================================================================================================================================
+  // ===========================================================================================================================================================
+
+  const [attendanceStatus, setAttendanceStatus] = useState("belum");
+
+  // sudah/belum
   const [loading, setLoading] = useState(false);
   const [coords, setCoords] = useState({ lat: "", long: "" });
 
@@ -170,19 +174,25 @@ export default function DashboardUser() {
     }
   }, [lokasiKantor, coords]);
   // load data izin 
-useEffect(() => {
-  axios.get(`/api/user/izin/summary/${idAkun}`)
-    .then((res) => {
-      setIzinPending(res.data.pending);
-      setWfhBulanIni(res.data.totalWFH);
-    })
-}, [idAkun]);
+  useEffect(() => {
+    if (!idAkun) return;
 
+    axios.get(`/api/user/izin/summary/${idAkun}`)
+      .then((res) => {
+        setIzinPending(res.data.pending);
+        setWfhBulanIni(res.data.totalWFH);
+      })
+      .catch((err) => {
+        console.error("❌ Gagal memuat summary izin:", err);
+      });
+  }, [idAkun]);
 
 
 
   // Konfirmasi Absen Keluar
   const handleConfirmKeluar = () => {
+    if (!sudahAbsenMasukToday) return; // ⛔ pengaman logika
+
     Swal.fire({
       title: "Konfirmasi Absen Pulang",
       html: `
@@ -190,22 +200,22 @@ useEffect(() => {
         Pastikan kamu benar-benar sudah menyelesaikan pekerjaan hari ini.
       </p>
       <p class="text-xs text-gray-500">
-        Setelah dikonfirmasi, data <b>jam pulang</b> akan disimpan di sistem dan tidak bisa diubah.
+        Setelah dikonfirmasi, data <b>jam pulang</b> akan disimpan dan tidak bisa diubah.
       </p>
     `,
       icon: "question",
       showCancelButton: true,
       confirmButtonText: "Ya, saya sudah selesai",
       cancelButtonText: "Batal",
-      confirmButtonColor: "#dc2626", // merah khas tombol keluar
+      confirmButtonColor: "#dc2626",
       cancelButtonColor: "#6b7280",
     }).then((result) => {
       if (result.isConfirmed) {
-        handleAttendance("KELUAR"); // kirim request ke backend
+        handleAttendance("KELUAR"); // ✅ sekarang cocok backend
       } else {
         Swal.fire({
           title: "Dibatalkan",
-          text: "Absen pulang dibatalkan, kamu masih dianggap bekerja.",
+          text: "Absen pulang dibatalkan.",
           icon: "info",
           timer: 2000,
           showConfirmButton: false,
@@ -216,22 +226,27 @@ useEffect(() => {
 
 
 
+
   // ======= KALENDER =======
   const fetchKehadiran = async (bulan, tahun) => {
     try {
       const res = await axios.get(`/api/user/kehadiran/${idAkun}?bulan=${bulan}&tahun=${tahun}`);
       if (res.data.success) {
         setKehadiran(res.data.data || []);
+
+        // ✅ cek status hari ini
         const today = new Date();
-        const sudah = (res.data.data || []).some(
+        const todayRecord = (res.data.data || []).find(
           (d) => new Date(d.created_at).toDateString() === today.toDateString()
         );
-        setAttendanceStatus(sudah ? "sudah" : "belum");
+
+        setAttendanceStatus(todayRecord?.status || "belum");
       }
     } catch {
       toast.fire({ icon: "error", title: "Gagal memuat kalender" });
     }
   };
+
 
 
   // ==== INIT ====
@@ -274,6 +289,19 @@ useEffect(() => {
   // Ringkasan
   const totalHadir = kehadiran.filter((k) => k.status === "HADIR").length;
   const totalWFH = kehadiran.filter((k) => k.status === "WFH").length;
+  // ✅ Cek apakah hari ini statusnya IZIN atau WFH
+  const today = new Date().toDateString();
+  const kehadiranHariIni = kehadiran.find(
+    (d) => new Date(d.created_at).toDateString() === today
+  );
+
+  const isIzinToday =
+    kehadiranHariIni?.status === "IZIN" ||
+    kehadiranHariIni?.status === "WFH";
+  const sudahAbsenMasukToday =
+    kehadiranHariIni?.jam_masuk !== null &&
+    (kehadiranHariIni?.status === "HADIR" || kehadiranHariIni?.status === "TERLAMBAT");
+
 
   // ======= UI SUB-KOMPONEN =======
   const StatCards = () => (
@@ -282,15 +310,40 @@ useEffect(() => {
         <p className="text-xs text-gray-500">Hari Ini</p>
         <div className="mt-1 flex items-center justify-between">
           <div className="text-sm font-semibold text-gray-800">
-            {attendanceStatus === "sudah" ? "Hadir" : "Belum Hadir"}
+            {attendanceStatus === "HADIR"
+              ? "Hadir"
+              : attendanceStatus === "WFH"
+                ? "Work From Home"
+                : attendanceStatus === "IZIN"
+                  ? "Izin"
+                  : "Belum Hadir"}
           </div>
-          <span
+
+          {/* <span
             className={`text-xs px-2 py-0.5 rounded-md ${attendanceStatus === "sudah"
               ? "bg-green-100 text-green-700"
               : "bg-red-100 text-red-700"
               }`}
           >
             {attendanceStatus === "sudah" ? "✔" : "✕"}
+          </span> */}
+          <span
+            className={`text-xs px-2 py-0.5 rounded-md ${attendanceStatus === "HADIR"
+              ? "bg-green-100 text-green-700"
+              : attendanceStatus === "WFH"
+                ? "bg-purple-100 text-purple-700"
+                : attendanceStatus === "IZIN"
+                  ? "bg-yellow-100 text-yellow-700"
+                  : "bg-red-100 text-red-700"
+              }`}
+          >
+            {attendanceStatus === "HADIR"
+              ? "✔"
+              : attendanceStatus === "WFH"
+                ? "🏠"
+                : attendanceStatus === "IZIN"
+                  ? "📝"
+                  : "✕"}
           </span>
         </div>
         <p className="text-[11px] text-emerald-600 mt-1">
@@ -343,20 +396,26 @@ useEffect(() => {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <button
             onClick={() => handleAttendance("MASUK")}
-            disabled={loading}
-            className="h-12 rounded-lg bg-green-600 text-white font-semibold hover:bg-green-700 transition"
+            disabled={loading || isIzinToday}
+            className={`h-12 rounded-lg text-white font-semibold transition w-full
+    ${isIzinToday
+                ? "bg-gray-400 cursor-not-allowed"
+                : "bg-green-600 hover:bg-green-700"
+              }`}
           >
             Absen Masuk
             <span className="block text-[11px] font-normal">
               {jamShift?.jam_masuk ? `${jamShift.jam_masuk} WIB` : "Memuat..."}
             </span>
           </button>
+
           <button
-            onClick={() => handleConfirmKeluar()} // ganti fungsi trigger-nya
-            disabled={loading || attendanceStatus !== "sudah"} // hanya aktif jika sudah absen masuk
-            className={`h-12 rounded-lg text-white font-semibold transition ${loading || attendanceStatus !== "sudah"
-              ? "bg-gray-400 cursor-not-allowed"
-              : "bg-red-600 hover:bg-red-700"
+            onClick={handleConfirmKeluar}
+            disabled={loading || isIzinToday || !sudahAbsenMasukToday}
+            className={`h-12 rounded-lg text-white font-semibold transition w-full
+    ${isIzinToday || !sudahAbsenMasukToday
+                ? "bg-gray-400 cursor-not-allowed"
+                : "bg-gray-600 hover:bg-gray-700"
               }`}
           >
             Absen Pulang
@@ -364,6 +423,9 @@ useEffect(() => {
               {jamShift?.jam_pulang ? `${jamShift.jam_pulang} WIB` : "Memuat..."}
             </span>
           </button>
+
+
+
 
         </div>
 

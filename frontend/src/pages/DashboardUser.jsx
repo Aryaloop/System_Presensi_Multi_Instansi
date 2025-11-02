@@ -5,6 +5,10 @@ import Calendar from "react-calendar";
 import "react-calendar/dist/Calendar.css";
 import Swal from "sweetalert2";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer
+} from "recharts";
+
 
 export default function DashboardUser() {
   const idAkun = typeof window !== "undefined" ? localStorage.getItem("id_akun") : null;
@@ -225,15 +229,12 @@ export default function DashboardUser() {
   };
 
 
-
-
   // ======= KALENDER =======
   const fetchKehadiran = async (bulan, tahun) => {
     try {
       const res = await axios.get(`/api/user/kehadiran/${idAkun}?bulan=${bulan}&tahun=${tahun}`);
       if (res.data.success) {
         setKehadiran(res.data.data || []);
-
         // ✅ cek status hari ini
         const today = new Date();
         const todayRecord = (res.data.data || []).find(
@@ -246,7 +247,6 @@ export default function DashboardUser() {
       toast.fire({ icon: "error", title: "Gagal memuat kalender" });
     }
   };
-
 
 
   // ==== INIT ====
@@ -318,15 +318,6 @@ export default function DashboardUser() {
                   ? "Izin"
                   : "Belum Hadir"}
           </div>
-
-          {/* <span
-            className={`text-xs px-2 py-0.5 rounded-md ${attendanceStatus === "sudah"
-              ? "bg-green-100 text-green-700"
-              : "bg-red-100 text-red-700"
-              }`}
-          >
-            {attendanceStatus === "sudah" ? "✔" : "✕"}
-          </span> */}
           <span
             className={`text-xs px-2 py-0.5 rounded-md ${attendanceStatus === "HADIR"
               ? "bg-green-100 text-green-700"
@@ -423,9 +414,6 @@ export default function DashboardUser() {
               {jamShift?.jam_pulang ? `${jamShift.jam_pulang} WIB` : "Memuat..."}
             </span>
           </button>
-
-
-
 
         </div>
 
@@ -589,6 +577,32 @@ export default function DashboardUser() {
       </ul>
     </div>
   );
+
+  // Hitung total jam kerja per hari (abaikan yang belum absen pulang)
+  const calculateWorkHours = () => {
+    // Pastikan kehadiran berupa array
+    if (!Array.isArray(kehadiran) || kehadiran.length === 0) return [];
+
+    // Filter hanya yang punya jam_masuk & jam_pulang valid
+    const dataValid = kehadiran.filter((k) =>
+      k.jam_masuk && k.jam_pulang && new Date(k.jam_pulang) > new Date(k.jam_masuk)
+    );
+
+    // Map ke bentuk grafik
+    return dataValid.map((k) => {
+      const masuk = new Date(k.jam_masuk);
+      const pulang = new Date(k.jam_pulang);
+      const durasi = (pulang - masuk) / (1000 * 60 * 60); // jam
+
+      return {
+        tanggal: new Date(k.created_at).toLocaleDateString("id-ID", {
+          day: "2-digit",
+          month: "short",
+        }),
+        durasi: parseFloat(durasi.toFixed(2)), // 2 desimal
+      };
+    });
+  };
 
   // ====== RENDER ======
   return (
@@ -797,13 +811,51 @@ export default function DashboardUser() {
               </div>
             )}
 
-            {/* DATA PRESENSI (placeholder) */}
             {page === "data" && (
-              <div className="bg-white rounded-xl border p-4">
-                <div className="font-semibold mb-4">Data Presensi</div>
-                <div className="text-sm text-gray-500">
-                  Tabel data presensi bisa ditaruh di sini (hubungkan ke endpoint listing presensi).
+              <div className="bg-white rounded-xl border p-6">
+                <div className="font-semibold mb-4">
+                  📊 Grafik Jam Kerja per Hari -{" "}
+                  {new Date().toLocaleString("id-ID", { month: "long", year: "numeric" })}
                 </div>
+
+                {/* Grafik Batang */}
+                {calculateWorkHours().length > 0 ? (
+                  <ResponsiveContainer width="100%" height={320}>
+                    <BarChart data={calculateWorkHours()}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="tanggal" />
+                      <YAxis
+                        label={{
+                          value: "Jam Kerja",
+                          angle: -90,
+                          position: "insideLeft",
+                          offset: 0,
+                        }}
+                        tickFormatter={(v) => `${v}`}
+                      />
+                      <Tooltip
+                        formatter={(value) => `${value} jam`}
+                        labelStyle={{ fontWeight: "bold" }}
+                      />
+                      <Legend />
+                      <Bar
+                        dataKey="durasi"
+                        fill="#4f46e5"
+                        name="Total Jam Kerja"
+                        radius={[6, 6, 0, 0]}
+                      />
+                    </BarChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="text-center text-sm text-gray-500 py-16">
+                    Belum ada data jam kerja dengan absen pulang di bulan ini.
+                  </div>
+                )}
+
+                {/* Info tambahan */}
+                <p className="text-xs text-gray-500 mt-4 text-center">
+                  Data dihitung berdasarkan waktu masuk dan pulang yang tercatat pada sistem.
+                </p>
               </div>
             )}
 

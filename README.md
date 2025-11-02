@@ -1,12 +1,17 @@
 npm install emailjs
+
 npm install bcryptjs
+
 npm install react-router-dom
+
 npm install @emailjs/browser
 npm install jsonwebtoken
 npm install uuid
 npm install -D tailwindcss@3 postcss autoprefixer
 npm install concurrently --save-dev
 npx tailwindcss init -p
+npm install recharts
+
 
 ## Struckture System
 ```

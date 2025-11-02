@@ -37,15 +37,17 @@ router.get("/api/admin/karyawan/:id_perusahaan", async (req, res) => {
       no_tlp,
       alamat_karyawan,
       shift:shift!akun_id_shift_fkey(nama_shift, jam_masuk, jam_pulang)
-    `, { count: 'exact' })
+    `, { count: "exact" })
     .eq("id_perusahaan", id_perusahaan)
     .neq("id_jabatan", "ADMIN")
+    .neq("id_jabatan", "SPRADM")     // ✅ tambahin ini
     .order("created_at", { ascending: false })
-    .range(offset, offset + limit - 1); // 🟢 pagination di Supabase
+    .range(offset, offset + limit - 1);
 
   if (error) return res.status(500).json({ message: error.message });
   res.json({ data, total: count, page, limit });
 });
+
 
 // ===================================================================
 // 🧑‍💼 POST: Tambah karyawan baru
@@ -333,7 +335,49 @@ router.patch("/api/admin/izin/:id_izin", async (req, res) => {
 });
 
 
-// System otomatis isi tabel karyawan kehadiran
+// ===================================================================
+// 🏢 GET: Ambil data perusahaan berdasarkan id
+// ===================================================================
+router.get("/api/admin/perusahaan/:id_perusahaan", async (req, res) => {
+  try {
+    const { id_perusahaan } = req.params;
+    const { data, error } = await supabase
+      .from("perusahaan")
+      .select("*")
+      .eq("id_perusahaan", id_perusahaan)
+      .single();
+    if (error) throw error;
+    res.json({ message: "✅ Data perusahaan ditemukan", data });
+  } catch (err) {
+    console.error("❌ Error get perusahaan:", err);
+    res.status(500).json({ message: "Gagal memuat data perusahaan" });
+  }
+});
+
+// ===================================================================
+// ✏️ PUT: Update lokasi perusahaan berdasarkan ID dari session login
+// ===================================================================
+router.put("/api/admin/perusahaan/:id_perusahaan", async (req, res) => {
+  try {
+    const { id_perusahaan } = req.params;
+    const { latitude, longitude, alamat, radius_m } = req.body;
+
+    const { data, error } = await supabase
+      .from("perusahaan")
+      .update({ latitude, longitude, alamat, radius_m })
+      .eq("id_perusahaan", id_perusahaan)
+      .select()
+      .single();
+
+    if (error) throw error;
+    res.json({ message: "✅ Data perusahaan berhasil diperbarui", data });
+  } catch (err) {
+    console.error("❌ Error update perusahaan:", err);
+    res.status(500).json({ message: "Gagal memperbarui data perusahaan" });
+  }
+});
+
+
 
 
 export default router;

@@ -6,8 +6,21 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import Swal from "sweetalert2";
 
 export default function DashboardAdmin() {
+useEffect(() => {
+  const timer = setTimeout(() => {
+    const role = localStorage.getItem("role");
+    const jabatan = localStorage.getItem("id_jabatan");
+    if (role !== "ADMIN" && jabatan !== "ADMIN") {
+      navigate("/login");
+    }
+  }, 100); // delay 100ms supaya sempat baca localStorage
+  return () => clearTimeout(timer);
+}, []);
+
+
   const navigate = useNavigate();
   const [page, setPage] = useState("dashboard");
+
   // Load data karyawan per 20
   // 🔹 State untuk pagination data karyawan
   const [currentPage, setCurrentPage] = useState(1);
@@ -89,6 +102,8 @@ export default function DashboardAdmin() {
   // 🔹 State penanda apakah form sedang digunakan untuk mengedit shift (true) atau menambah shift baru (false)
   const [editShift, setEditShift] = useState(false);
 
+  // Update perusahaan
+  const [perusahaan, setPerusahaan] = useState({});
   // =========================================
   // 🧩 EVENT HANDLER & LOGIC
   // =========================================
@@ -99,21 +114,6 @@ export default function DashboardAdmin() {
   const handleShiftChange = (e) => {
     setShiftForm({ ...shiftForm, [e.target.name]: e.target.value });
   };
-
-
-
-  // 🟢 fetchShift()
-  // Mengambil seluruh data shift dari backend melalui endpoint:
-  //    GET /api/presensi/shift
-  // Lalu hasilnya disimpan ke state `shiftData` untuk ditampilkan di tabel shift admin.
-  const fetchShift = async () => {
-    const id_perusahaan = localStorage.getItem("id_perusahaan");
-    const res = await axios.get(`/api/admin/shift/${id_perusahaan}`);
-    setShiftData(res.data.data);
-  };
-
-
-
 
   // 🟢 handleAddShift()
   // Dipanggil saat admin menekan tombol “Simpan” di form tambah shift.
@@ -147,24 +147,6 @@ export default function DashboardAdmin() {
   const fetchIzin = async () => {
     const res = await axios.get("/api/presensi/izin");
     setIzinData(res.data.data);
-  };
-
-
-
-  // 🟢 verifikasiIzin()
-  // Digunakan ketika admin menekan tombol “Setujui” atau “Tolak” pada daftar izin.
-  // - Mengirim permintaan PATCH ke endpoint:
-  //     PATCH /api/presensi/izin/:id
-  // - Data yang dikirim:
-  //     • status_persetujuan  → “DISETUJUI” atau “DITOLAK”
-  //     • id_verifikator      → ID akun admin dari localStorage
-  // - Setelah berhasil update, akan memanggil `fetchIzin()` lagi agar tabel izin diperbarui.
-  const verifikasiIzin = async (id, status) => {
-    await axios.patch(`/api/presensi/izin/${id}`, {
-      status_persetujuan: status,
-      id_verifikator: localStorage.getItem("id_akun"),
-    });
-    fetchIzin();
   };
 
   // Func Edit karyawan 
@@ -275,6 +257,22 @@ export default function DashboardAdmin() {
     fetchIzinList();
   };
 
+  // ===================================================
+  // -----------------Perusahaan Update-----------------
+  // ===================================================
+  useEffect(() => {
+    const fetchPerusahaan = async () => {
+      try {
+        if (!id_perusahaan) return console.warn("⚠️ ID perusahaan belum tersimpan di session");
+        const res = await axios.get(`/api/admin/perusahaan/${id_perusahaan}`);
+        setPerusahaan(res.data.data);
+      } catch (err) {
+        console.error("❌ Gagal memuat data perusahaan:", err);
+      }
+    };
+    if (page === "perusahaan") fetchPerusahaan();
+  }, [page]);
+
   return (
     <div className="min-h-screen bg-gray-100">
       {/* ================= HEADER ================= */}
@@ -296,6 +294,7 @@ export default function DashboardAdmin() {
           { key: "jadwal", label: "🕒 Jadwal Kerja" },
           { key: "izin", label: "📝 Verifikasi Izin" },
           { key: "rekap", label: "🏅 Rekap & Reward" },
+          { key: "perusahaan", label: "Perusahaan" },
         ].map((item) => (
           <button
             key={item.key}
@@ -717,6 +716,7 @@ export default function DashboardAdmin() {
 
 
         {/* ---------------- REKAP & REWARD ---------------- */}
+
         {page === "rekap" && (
           <section>
             <h2 className="text-xl font-bold mb-4">🏅 Rekap Kedisiplinan & Reward</h2>
@@ -745,6 +745,163 @@ export default function DashboardAdmin() {
             </div>
           </section>
         )}
+        {/* ---------------- Perusahaan ---------------- */}
+        {page === "perusahaan" && (
+          <section>
+            <h2 className="text-xl font-bold mb-4">🏢 Kelola Data Perusahaan</h2>
+            <p className="text-gray-600 mb-4">
+              Admin dapat memperbarui lokasi kantor perusahaan dan radius presensi.
+              ID perusahaan otomatis mengikuti akun login.
+            </p>
+
+            <div className="bg-white p-6 rounded-lg shadow w-full md:w-2/3">
+              <form
+                onSubmit={async (e) => {
+                  e.preventDefault();
+                  try {
+                    await axios.put(`/api/admin/perusahaan/${id_perusahaan}`, {
+                      alamat: perusahaan.alamat,
+                      latitude: perusahaan.latitude,
+                      longitude: perusahaan.longitude,
+                      radius_m: perusahaan.radius_m,
+                    });
+                    Swal.fire("✅ Berhasil", "Data perusahaan berhasil diperbarui", "success");
+                  } catch (err) {
+                    console.error("❌ Gagal update perusahaan:", err);
+                    Swal.fire("❌ Gagal", "Terjadi kesalahan saat memperbarui data", "error");
+                  }
+                }}
+                className="space-y-4"
+              >
+                {/* ID Perusahaan */}
+                <div>
+                  <label className="block font-semibold mb-1">ID Perusahaan</label>
+                  <input
+                    type="text"
+                    value={perusahaan.id_perusahaan || id_perusahaan || ""}
+                    disabled
+                    className="w-full border p-2 rounded bg-gray-100"
+                  />
+                </div>
+
+                {/* Nama Perusahaan */}
+                <div>
+                  <label className="block font-semibold mb-1">Nama Perusahaan</label>
+                  <input
+                    type="text"
+                    value={perusahaan.nama_perusahaan || ""}
+                    disabled
+                    className="w-full border p-2 rounded bg-gray-100"
+                  />
+                </div>
+
+                {/* Paste link Google Maps */}
+                <div>
+                  <label className="block font-semibold mb-1">
+                    Paste Link Google Maps
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Tempel link Google Maps di sini"
+                    className="w-full border p-2 rounded"
+                    onChange={async (e) => {
+                      const input = e.target.value.trim();
+                      let latitude = perusahaan.latitude;
+                      let longitude = perusahaan.longitude;
+                      let alamat = perusahaan.alamat;
+
+                      if (input.includes("https://www.google.com/maps")) {
+                        const atIndex = input.indexOf("@");
+                        if (atIndex !== -1) {
+                          const coords = input.substring(atIndex + 1).split(",");
+                          latitude = coords[0];
+                          longitude = coords[1];
+                        }
+
+                        // 🔹 Reverse geocoding gratis dari OpenStreetMap (tanpa API key)
+                        try {
+                          const res = await axios.get(
+                            `https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json`
+                          );
+                          alamat = res.data.display_name;
+                        } catch (err) {
+                          console.error("❌ Gagal mendapatkan alamat dari Nominatim:", err);
+                        }
+                      }
+
+                      setPerusahaan({
+                        ...perusahaan,
+                        alamat,
+                        latitude,
+                        longitude,
+                      });
+                    }}
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Contoh: https://www.google.com/maps/place/Nama Alamat/@-x.xxxxxxxx,xxx.xxxxxx,...
+                  </p>
+                </div>
+
+                {/* Alamat Perusahaan (otomatis hasil geocoding, disable) */}
+                <div>
+                  <label className="block font-semibold mb-1">Alamat Perusahaan</label>
+                  <textarea
+                    value={perusahaan.alamat || ""}
+                    disabled
+                    className="w-full border p-2 rounded bg-gray-100"
+                    rows="2"
+                  />
+                </div>
+
+                {/* Latitude & Longitude */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block font-semibold mb-1">Latitude</label>
+                    <input
+                      type="text"
+                      value={perusahaan.latitude || ""}
+                      disabled
+                      className="w-full border p-2 rounded bg-gray-100"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-semibold mb-1">Longitude</label>
+                    <input
+                      type="text"
+                      value={perusahaan.longitude || ""}
+                      disabled
+                      className="w-full border p-2 rounded bg-gray-100"
+                    />
+                  </div>
+                </div>
+
+                {/* Radius */}
+                <div>
+                  <label className="block font-semibold mb-1">Radius Kantor (meter)</label>
+                  <input
+                    type="number"
+                    value={perusahaan.radius_m || ""}
+                    onChange={(e) =>
+                      setPerusahaan({ ...perusahaan, radius_m: e.target.value })
+                    }
+                    className="w-full border p-2 rounded"
+                  />
+                </div>
+
+                {/* Tombol Simpan */}
+                <div className="flex justify-end gap-2 mt-4">
+                  <button
+                    type="submit"
+                    className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700"
+                  >
+                    💾 Simpan Perubahan
+                  </button>
+                </div>
+              </form>
+            </div>
+          </section>
+        )}
+
       </main>
     </div>
   );

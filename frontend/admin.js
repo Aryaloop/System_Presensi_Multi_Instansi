@@ -17,31 +17,7 @@ router.use(compression());
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
 const makeShiftId = customAlphabet("ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789", 8);
 
-// ===================================================================
-// 📋 GET: Ambil data karyawan berdasarkan ID perusahaan
-// ===================================================================
-// router.get("/api/admin/karyawan/:id_perusahaan", async (req, res) => {
-//   const { id_perusahaan } = req.params;
 
-//   const { data, error } = await supabase
-//     .from("akun")
-//     .select(`
-//       id_akun,
-//       username,
-//       email,
-//       id_jabatan,
-//       id_shift,
-//       no_tlp,
-//       alamat_karyawan,
-//       shift:shift!akun_id_shift_fkey(nama_shift, jam_masuk, jam_pulang)
-//     `)
-//     .eq("id_perusahaan", id_perusahaan)
-//     .neq("id_jabatan", "ADMIN")
-//     .order("created_at", { ascending: false });
-
-//   if (error) return res.status(500).json({ message: error.message });
-//   res.json({ data });
-// });
 
 // GET: ambil data karyawan berdasarkan perusahaan (dengan pagination)
 router.get("/api/admin/karyawan/:id_perusahaan", async (req, res) => {
@@ -61,15 +37,17 @@ router.get("/api/admin/karyawan/:id_perusahaan", async (req, res) => {
       no_tlp,
       alamat_karyawan,
       shift:shift!akun_id_shift_fkey(nama_shift, jam_masuk, jam_pulang)
-    `, { count: 'exact' })
+    `, { count: "exact" })
     .eq("id_perusahaan", id_perusahaan)
     .neq("id_jabatan", "ADMIN")
+    .neq("id_jabatan", "SPRADM")     // ✅ tambahin ini
     .order("created_at", { ascending: false })
-    .range(offset, offset + limit - 1); // 🟢 pagination di Supabase
+    .range(offset, offset + limit - 1);
 
   if (error) return res.status(500).json({ message: error.message });
   res.json({ data, total: count, page, limit });
 });
+
 
 // ===================================================================
 // 🧑‍💼 POST: Tambah karyawan baru
@@ -199,5 +177,207 @@ router.post("/api/admin/shift", async (req, res) => {
     res.status(500).json({ message: "Gagal menambah shift" });
   }
 });
+
+// ===================================================================
+// ✏️ PUT: Edit shift
+// ===================================================================
+router.put("/api/admin/shift/:id_shift", async (req, res) => {
+  try {
+    const { id_shift } = req.params;
+    const { nama_shift, jam_masuk, jam_pulang, hari_shift } = req.body;
+
+    const { data, error } = await supabase
+      .from("shift")
+      .update({ nama_shift, jam_masuk, jam_pulang, hari_shift })
+      .eq("id_shift", id_shift)
+      .select()
+      .single();
+
+    if (error) throw error;
+    res.json({ message: "✅ Shift berhasil diperbarui", data });
+  } catch (err) {
+    console.error("❌ Error edit shift:", err);
+    res.status(500).json({ message: "Gagal memperbarui shift" });
+  }
+});
+
+// ===================================================================
+// 🗑️ DELETE: Hapus shift
+// ===================================================================
+router.delete("/api/admin/shift/:id_shift", async (req, res) => {
+  try {
+    const { id_shift } = req.params;
+
+    const { error } = await supabase.from("shift").delete().eq("id_shift", id_shift);
+    if (error) throw error;
+
+    res.json({ message: "🗑️ Shift berhasil dihapus" });
+  } catch (err) {
+    console.error("❌ Error hapus shift:", err);
+    res.status(500).json({ message: "Gagal menghapus shift" });
+  }
+});
+
+// ======================================================
+// -------------------Verifikasi Izin------------------
+// ======================================================
+
+// ===================================================
+// 📌 GET: Semua izin untuk perusahaan tertentu
+// ===================================================
+router.get("/api/admin/izin/:id_perusahaan", async (req, res) => {
+  try {
+    const { id_perusahaan } = req.params;
+    const limit = parseInt(req.query.limit) || 10;
+    const page = parseInt(req.query.page) || 1;
+    const offset = (page - 1) * limit;
+
+    const { data, error, count } = await supabase
+      .from("izin_wfh")
+      .select(`
+        id_izin,
+        id_akun,
+        tanggal_mulai,
+        tanggal_selesai,
+        jenis_izin,
+        alasan,
+        status_persetujuan,
+        tanggal_pengajuan,
+        akun:akun!izin_wfh_id_akun_fkey(username)
+      `, { count: "exact" })
+      .eq("akun.id_perusahaan", id_perusahaan)
+      .order("tanggal_pengajuan", { ascending: false })
+      .range(offset, offset + limit - 1);
+
+    if (error) throw error;
+
+    res.json({ data, page, limit, total: count });
+  } catch (err) {
+    console.error("❌ Error get izin:", err);
+    res.status(500).json({ message: "Gagal memuat izin" });
+  }
+});
+
+
+
+// ===================================================
+// ✅ PATCH: Verifikasi Izin (Setujui / Tolak)
+// ===================================================
+router.patch("/api/admin/izin/:id_izin", async (req, res) => {
+  try {
+    const { id_izin } = req.params;
+    const { status_persetujuan, id_verifikator, keterangan } = req.body;
+
+    // 1) Update status izin
+    const { data: izin, error } = await supabase
+      .from("izin_wfh")
+      .update({
+        status_persetujuan,
+        id_verifikator,
+        tanggal_verifikasi: new Date(),
+        keterangan: keterangan || null,
+      })
+      .eq("id_izin", id_izin)
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    // ✅ Jika izin ditolak → selesai
+    if (status_persetujuan !== "DISETUJUI") {
+      return res.json({ message: "✅ Status izin diperbarui (DITOLAK)", izin });
+    }
+
+    // 2) Ambil info akun
+    const { data: akun } = await supabase
+      .from("akun")
+      .select("id_perusahaan, id_shift")
+      .eq("id_akun", izin.id_akun)
+      .single();
+
+    // 3) Generate tanggal per hari untuk diinput ke kehadiran
+    const start = new Date(izin.tanggal_mulai);
+    const end = new Date(izin.tanggal_selesai);
+
+    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+
+      // ⚠️ Cek dulu apakah sudah ada kehadiran untuk hari tersebut
+      const dayISO = d.toISOString().split("T")[0];
+      const { data: existed } = await supabase
+        .from("kehadiran")
+        .select("id_kehadiran")
+        .eq("id_akun", izin.id_akun)
+        .like("created_at", `${dayISO}%`);
+
+      if (existed?.length > 0) continue; // ⛔ Jangan duplikat
+
+      // ✅ Insert otomatis
+      await supabase.from("kehadiran").insert({
+        id_akun: izin.id_akun,
+        id_shift: akun.id_shift || null,
+        status: izin.jenis_izin.toUpperCase(), // IZIN / WFH
+        id_perusahaan: akun.id_perusahaan,
+        jam_masuk: null,
+        jam_pulang: null,
+        created_at: dayISO,
+      });
+    }
+
+    return res.json({
+      message: "✅ Izin DISETUJUI & kehadiran terisi otomatis",
+      izin,
+    });
+
+  } catch (err) {
+    console.error("❌ Error verifikasi izin:", err);
+    res.status(500).json({ message: "Gagal memverifikasi izin" });
+  }
+});
+
+
+// ===================================================================
+// 🏢 GET: Ambil data perusahaan berdasarkan id
+// ===================================================================
+router.get("/api/admin/perusahaan/:id_perusahaan", async (req, res) => {
+  try {
+    const { id_perusahaan } = req.params;
+    const { data, error } = await supabase
+      .from("perusahaan")
+      .select("*")
+      .eq("id_perusahaan", id_perusahaan)
+      .single();
+    if (error) throw error;
+    res.json({ message: "✅ Data perusahaan ditemukan", data });
+  } catch (err) {
+    console.error("❌ Error get perusahaan:", err);
+    res.status(500).json({ message: "Gagal memuat data perusahaan" });
+  }
+});
+
+// ===================================================================
+// ✏️ PUT: Update lokasi perusahaan berdasarkan ID dari session login
+// ===================================================================
+router.put("/api/admin/perusahaan/:id_perusahaan", async (req, res) => {
+  try {
+    const { id_perusahaan } = req.params;
+    const { latitude, longitude, alamat, radius_m } = req.body;
+
+    const { data, error } = await supabase
+      .from("perusahaan")
+      .update({ latitude, longitude, alamat, radius_m })
+      .eq("id_perusahaan", id_perusahaan)
+      .select()
+      .single();
+
+    if (error) throw error;
+    res.json({ message: "✅ Data perusahaan berhasil diperbarui", data });
+  } catch (err) {
+    console.error("❌ Error update perusahaan:", err);
+    res.status(500).json({ message: "Gagal memperbarui data perusahaan" });
+  }
+});
+
+
+
 
 export default router;

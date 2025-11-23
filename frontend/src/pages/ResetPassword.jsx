@@ -1,23 +1,55 @@
 import React, { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import axios from "axios";
+import Swal from "sweetalert2";
 
 export default function ResetPassword() {
   const { token } = useParams();
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
-  const [message, setMessage] = useState("");
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (password !== confirm) return setMessage("Password tidak cocok");
+
+    // ✅ Cek minimal panjang password
+    if (password.length < 8) {
+      Swal.fire({
+        icon: "warning",
+        title: "Password Terlalu Pendek",
+        text: "Password minimal 8 karakter.",
+        confirmButtonColor: "#4f46e5",
+      });
+      return;
+    }
+
+    // ✅ Cek konfirmasi password
+    if (password !== confirm) {
+      Swal.fire({
+        icon: "error",
+        title: "Konfirmasi Tidak Cocok",
+        text: "Ulangi dan pastikan password sama.",
+        confirmButtonColor: "#4f46e5",
+      });
+      return;
+    }
+
     try {
       const res = await axios.post(`/api/reset-password/${token}`, { password });
-      setMessage(res.data.message);
+      Swal.fire({
+        icon: "success",
+        title: "Berhasil",
+        text: res.data.message || "Password telah direset",
+        confirmButtonColor: "#4f46e5",
+      });
       setTimeout(() => navigate("/login"), 2000);
     } catch (err) {
-      setMessage(err.response?.data?.message || "Gagal reset password");
+      Swal.fire({
+        icon: "error",
+        title: "Gagal Reset Password",
+        text: err.response?.data?.message || "Coba lagi nanti.",
+        confirmButtonColor: "#4f46e5",
+      });
     }
   };
 
@@ -46,7 +78,6 @@ export default function ResetPassword() {
             Simpan Password
           </button>
         </form>
-        {message && <p className="mt-4 text-gray-700">{message}</p>}
       </div>
     </div>
   );

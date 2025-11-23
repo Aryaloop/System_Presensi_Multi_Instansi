@@ -315,5 +315,92 @@ router.get("/lokasi-shift/:id_akun", async (req, res) => {
   }
 });
 
+router.post("/izin", async (req, res) => {
+  try {
+    const { id_akun, tanggal_mulai, tanggal_selesai, jenis_izin, alasan } = req.body;
+
+    // ❗ Validasi 1: Tidak boleh ada izin pending
+    const { data: stillPending } = await supabase
+      .from("izin_wfh")
+      .select("id_izin")
+      .eq("id_akun", id_akun)
+      .eq("status_persetujuan", "PENDING");
+
+    if (stillPending?.length > 0)
+      return res.status(400).json({ message: "Masih ada izin yang belum diverifikasi." });
+
+    // ❗ Validasi 2: Tidak boleh ada izin WFH aktif
+    const today = new Date().toISOString().split("T")[0];
+    const { data: active } = await supabase
+      .from("izin_wfh")
+      .select("id_izin")
+      .eq("id_akun", id_akun)
+      .eq("status_persetujuan", "DISETUJUI")
+      .gte("tanggal_selesai", today);
+
+    if (active?.length > 0)
+      return res.status(400).json({ message: "Izin sebelumnya masih aktif. Tunggu sampai selesai." });
+
+    // ✅ Jika lolos → Insert izin baru
+    await supabase.from("izin_wfh").insert({
+      id_akun,
+      tanggal_mulai,
+      tanggal_selesai,
+      jenis_izin,
+      alasan,
+    });
+
+    return res.json({ message: "Pengajuan izin berhasil dikirim ✅" });
+
+  } catch (err) {
+    console.error("❌ Error:", err);
+    return res.status(500).json({ message: "Terjadi kesalahan server." });
+  }
+});
+
+router.get("/izin/summary/:id_akun", async (req, res) => {
+  try {
+    const { id_akun } = req.params;
+
+    // ✅ count izin pending
+    const { data: pending } = await supabase
+      .from("izin_wfh")
+      .select("id_izin")
+      .eq("id_akun", id_akun)
+      .eq("status_persetujuan", "PENDING");
+
+    const pendingCount = pending?.length || 0;
+
+    // ✅ hitung total wfh bulan ini dari izin yang DISETUJUI
+    const now = new Date();
+    const bulan = now.getMonth() + 1;
+    const tahun = now.getFullYear();
+    const firstDay = `${tahun}-${String(bulan).padStart(2, "0")}-01`;
+
+    const { data: approved } = await supabase
+      .from("izin_wfh")
+      .select("tanggal_mulai, tanggal_selesai")
+      .eq("id_akun", id_akun)
+      .eq("status_persetujuan", "DISETUJUI") // ✅ fix
+      .gte("tanggal_selesai", firstDay);
+
+    let totalWFH = 0;
+    approved?.forEach((i) => {
+      const d1 = new Date(i.tanggal_mulai);
+      const d2 = new Date(i.tanggal_selesai);
+      totalWFH += (d2 - d1) / (1000 * 60 * 60 * 24) + 1;
+    });
+
+    return res.json({
+      pending: pendingCount,
+      totalWFH,
+    });
+
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ message: "Summary gagal dimuat" });
+  }
+});
+
 
 export default router;

@@ -8,37 +8,51 @@ dotenv.config({ path: path.resolve("../.env") });
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
 
 export class SuperAdminController {
-  // GET semua perusahaan
+  // GET semua perusahaan pagination 10 perusahaan
   static async getAllPerusahaan(req, res) {
     try {
-      const { data, error } = await supabase
+      const limit = parseInt(req.query.limit) || 10;
+      const page = parseInt(req.query.page) || 1;
+      const offset = (page - 1) * limit;
+
+      const { data, error, count } = await supabase
         .from("perusahaan")
-        .select("*")
-        .order("nama_perusahaan", { ascending: true });
+        .select("*", { count: "exact" })
+        .order("nama_perusahaan", { ascending: true })
+        .range(offset, offset + limit - 1);
 
       if (error) throw error;
-      res.json(data);
+
+      res.json({ data, page, limit, total: count });
     } catch (err) {
       console.error("❌ getAllPerusahaan:", err);
       res.status(500).json({ message: "Gagal mengambil data perusahaan" });
     }
   }
 
-  // GET semua admin
+
+  // GET semua admin /10 pagination 
   static async getAllAdmins(req, res) {
     try {
-      const { data, error } = await supabase
+      const limit = parseInt(req.query.limit) || 10;
+      const page = parseInt(req.query.page) || 1;
+      const offset = (page - 1) * limit;
+
+      const { data, error, count } = await supabase
         .from("akun")
-        .select("id_akun, username, email, id_perusahaan")
-        .eq("id_jabatan", "ADMIN");
+        .select("id_akun, username, email, id_perusahaan", { count: "exact" })
+        .eq("id_jabatan", "ADMIN")
+        .range(offset, offset + limit - 1);
 
       if (error) throw error;
-      res.json(data);
+
+      res.json({ data, page, limit, total: count });
     } catch (err) {
       console.error("❌ getAllAdmins:", err);
       res.status(500).json({ message: "Gagal mengambil data admin" });
     }
   }
+
 
   // SUSPEND perusahaan
   static async suspendPerusahaan(req, res) {

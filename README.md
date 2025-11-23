@@ -15,6 +15,8 @@ npm install -D tailwindcss@3 postcss autoprefixer
 npm install concurrently --save-dev
 
 npx tailwindcss init -p
+npm install recharts
+
 
 
 ## Struckture System

@@ -5,6 +5,10 @@ import Calendar from "react-calendar";
 import "react-calendar/dist/Calendar.css";
 import Swal from "sweetalert2";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer
+} from "recharts";
+
 
 export default function DashboardUser() {
   const idAkun = typeof window !== "undefined" ? localStorage.getItem("id_akun") : null;
@@ -38,14 +42,23 @@ export default function DashboardUser() {
   const [jamShift, setJamShift] = useState(null);
   const [statusArea, setStatusArea] = useState("...");
 
+  // -----------komponen informasi izin dan wakti wfh ----------------
+  const [izinPending, setIzinPending] = useState(0);
+  const [wfhBulanIni, setWfhBulanIni] = useState(0);
+
+
   // --------- NAV / LAYOUT ----------
   const [page, setPage] = useState("dashboard"); // dashboard | absen | izin | kalender | data | pengaturan
 
   // --------- DATA USER (profil dari DB) ----------
   const [user, setUser] = useState({ nama: "-", email: "", jabatan: "Karyawan" });
 
-  // --------- ABSENSI ----------
-  const [attendanceStatus, setAttendanceStatus] = useState("belum"); // sudah/belum
+  // --------- ABSENSI ----------====================================================================================================================================================================================================
+  // ===========================================================================================================================================================
+
+  const [attendanceStatus, setAttendanceStatus] = useState("belum");
+
+  // sudah/belum
   const [loading, setLoading] = useState(false);
   const [coords, setCoords] = useState({ lat: "", long: "" });
 
@@ -59,6 +72,7 @@ export default function DashboardUser() {
   const [tanggal_selesai, setTanggalSelesai] = useState("");
   const [alasan, setAlasan] = useState("");
   const [keterangan, setKeterangan] = useState("");
+
 
 
 
@@ -163,9 +177,26 @@ export default function DashboardUser() {
       setStatusArea(jarak <= lokasiKantor.radius_m ? "Dalam Area" : "Luar Area");
     }
   }, [lokasiKantor, coords]);
+  // load data izin 
+  useEffect(() => {
+    if (!idAkun) return;
+
+    axios.get(`/api/user/izin/summary/${idAkun}`)
+      .then((res) => {
+        setIzinPending(res.data.pending);
+        setWfhBulanIni(res.data.totalWFH);
+      })
+      .catch((err) => {
+        console.error("❌ Gagal memuat summary izin:", err);
+      });
+  }, [idAkun]);
+
+
 
   // Konfirmasi Absen Keluar
   const handleConfirmKeluar = () => {
+    if (!sudahAbsenMasukToday) return; // ⛔ pengaman logika
+
     Swal.fire({
       title: "Konfirmasi Absen Pulang",
       html: `
@@ -173,22 +204,22 @@ export default function DashboardUser() {
         Pastikan kamu benar-benar sudah menyelesaikan pekerjaan hari ini.
       </p>
       <p class="text-xs text-gray-500">
-        Setelah dikonfirmasi, data <b>jam pulang</b> akan disimpan di sistem dan tidak bisa diubah.
+        Setelah dikonfirmasi, data <b>jam pulang</b> akan disimpan dan tidak bisa diubah.
       </p>
     `,
       icon: "question",
       showCancelButton: true,
       confirmButtonText: "Ya, saya sudah selesai",
       cancelButtonText: "Batal",
-      confirmButtonColor: "#dc2626", // merah khas tombol keluar
+      confirmButtonColor: "#dc2626",
       cancelButtonColor: "#6b7280",
     }).then((result) => {
       if (result.isConfirmed) {
-        handleAttendance("KELUAR"); // kirim request ke backend
+        handleAttendance("KELUAR"); // ✅ sekarang cocok backend
       } else {
         Swal.fire({
           title: "Dibatalkan",
-          text: "Absen pulang dibatalkan, kamu masih dianggap bekerja.",
+          text: "Absen pulang dibatalkan.",
           icon: "info",
           timer: 2000,
           showConfirmButton: false,
@@ -198,18 +229,19 @@ export default function DashboardUser() {
   };
 
 
-
   // ======= KALENDER =======
   const fetchKehadiran = async (bulan, tahun) => {
     try {
       const res = await axios.get(`/api/user/kehadiran/${idAkun}?bulan=${bulan}&tahun=${tahun}`);
       if (res.data.success) {
         setKehadiran(res.data.data || []);
+        // ✅ cek status hari ini
         const today = new Date();
-        const sudah = (res.data.data || []).some(
+        const todayRecord = (res.data.data || []).find(
           (d) => new Date(d.created_at).toDateString() === today.toDateString()
         );
-        setAttendanceStatus(sudah ? "sudah" : "belum");
+
+        setAttendanceStatus(todayRecord?.status || "belum");
       }
     } catch {
       toast.fire({ icon: "error", title: "Gagal memuat kalender" });
@@ -257,6 +289,19 @@ export default function DashboardUser() {
   // Ringkasan
   const totalHadir = kehadiran.filter((k) => k.status === "HADIR").length;
   const totalWFH = kehadiran.filter((k) => k.status === "WFH").length;
+  // ✅ Cek apakah hari ini statusnya IZIN atau WFH
+  const today = new Date().toDateString();
+  const kehadiranHariIni = kehadiran.find(
+    (d) => new Date(d.created_at).toDateString() === today
+  );
+
+  const isIzinToday =
+    kehadiranHariIni?.status === "IZIN" ||
+    kehadiranHariIni?.status === "WFH";
+  const sudahAbsenMasukToday =
+    kehadiranHariIni?.jam_masuk !== null &&
+    (kehadiranHariIni?.status === "HADIR" || kehadiranHariIni?.status === "TERLAMBAT");
+
 
   // ======= UI SUB-KOMPONEN =======
   const StatCards = () => (
@@ -265,15 +310,31 @@ export default function DashboardUser() {
         <p className="text-xs text-gray-500">Hari Ini</p>
         <div className="mt-1 flex items-center justify-between">
           <div className="text-sm font-semibold text-gray-800">
-            {attendanceStatus === "sudah" ? "Hadir" : "Belum Hadir"}
+            {attendanceStatus === "HADIR"
+              ? "Hadir"
+              : attendanceStatus === "WFH"
+                ? "Work From Home"
+                : attendanceStatus === "IZIN"
+                  ? "Izin"
+                  : "Belum Hadir"}
           </div>
           <span
-            className={`text-xs px-2 py-0.5 rounded-md ${attendanceStatus === "sudah"
+            className={`text-xs px-2 py-0.5 rounded-md ${attendanceStatus === "HADIR"
               ? "bg-green-100 text-green-700"
-              : "bg-red-100 text-red-700"
+              : attendanceStatus === "WFH"
+                ? "bg-purple-100 text-purple-700"
+                : attendanceStatus === "IZIN"
+                  ? "bg-yellow-100 text-yellow-700"
+                  : "bg-red-100 text-red-700"
               }`}
           >
-            {attendanceStatus === "sudah" ? "✔" : "✕"}
+            {attendanceStatus === "HADIR"
+              ? "✔"
+              : attendanceStatus === "WFH"
+                ? "🏠"
+                : attendanceStatus === "IZIN"
+                  ? "📝"
+                  : "✕"}
           </span>
         </div>
         <p className="text-[11px] text-emerald-600 mt-1">
@@ -295,20 +356,22 @@ export default function DashboardUser() {
       <div className="bg-white rounded-xl border p-4">
         <p className="text-xs text-gray-500">Izin Pending</p>
         <div className="mt-1 flex items-center justify-between">
-          <div className="text-sm font-semibold text-gray-800">2</div>
+          <div className="text-sm font-semibold text-gray-800">{izinPending}</div>
           <span className="text-xs px-2 py-0.5 rounded-md bg-yellow-100 text-yellow-700">⏳</span>
         </div>
         <p className="text-[11px] text-gray-400 mt-1">Menunggu Approval</p>
       </div>
 
+
       <div className="bg-white rounded-xl border p-4">
         <p className="text-xs text-gray-500">WFH Bulan Ini</p>
         <div className="mt-1 flex items-center justify-between">
-          <div className="text-sm font-semibold text-gray-800">{totalWFH} Hari</div>
+          <div className="text-sm font-semibold text-gray-800">{wfhBulanIni} Hari</div>
           <span className="text-xs px-2 py-0.5 rounded-md bg-purple-100 text-purple-700">🏠</span>
         </div>
         <p className="text-[11px] text-gray-400 mt-1">Work From Home</p>
       </div>
+
     </div>
   );
 
@@ -324,20 +387,26 @@ export default function DashboardUser() {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <button
             onClick={() => handleAttendance("MASUK")}
-            disabled={loading}
-            className="h-12 rounded-lg bg-green-600 text-white font-semibold hover:bg-green-700 transition"
+            disabled={loading || isIzinToday}
+            className={`h-12 rounded-lg text-white font-semibold transition w-full
+    ${isIzinToday
+                ? "bg-gray-400 cursor-not-allowed"
+                : "bg-green-600 hover:bg-green-700"
+              }`}
           >
             Absen Masuk
             <span className="block text-[11px] font-normal">
               {jamShift?.jam_masuk ? `${jamShift.jam_masuk} WIB` : "Memuat..."}
             </span>
           </button>
+
           <button
-            onClick={() => handleConfirmKeluar()} // ganti fungsi trigger-nya
-            disabled={loading || attendanceStatus !== "sudah"} // hanya aktif jika sudah absen masuk
-            className={`h-12 rounded-lg text-white font-semibold transition ${loading || attendanceStatus !== "sudah"
-              ? "bg-gray-400 cursor-not-allowed"
-              : "bg-red-600 hover:bg-red-700"
+            onClick={handleConfirmKeluar}
+            disabled={loading || isIzinToday || !sudahAbsenMasukToday}
+            className={`h-12 rounded-lg text-white font-semibold transition w-full
+    ${isIzinToday || !sudahAbsenMasukToday
+                ? "bg-gray-400 cursor-not-allowed"
+                : "bg-gray-600 hover:bg-gray-700"
               }`}
           >
             Absen Pulang
@@ -508,6 +577,32 @@ export default function DashboardUser() {
       </ul>
     </div>
   );
+
+  // Hitung total jam kerja per hari (abaikan yang belum absen pulang)
+  const calculateWorkHours = () => {
+    // Pastikan kehadiran berupa array
+    if (!Array.isArray(kehadiran) || kehadiran.length === 0) return [];
+
+    // Filter hanya yang punya jam_masuk & jam_pulang valid
+    const dataValid = kehadiran.filter((k) =>
+      k.jam_masuk && k.jam_pulang && new Date(k.jam_pulang) > new Date(k.jam_masuk)
+    );
+
+    // Map ke bentuk grafik
+    return dataValid.map((k) => {
+      const masuk = new Date(k.jam_masuk);
+      const pulang = new Date(k.jam_pulang);
+      const durasi = (pulang - masuk) / (1000 * 60 * 60); // jam
+
+      return {
+        tanggal: new Date(k.created_at).toLocaleDateString("id-ID", {
+          day: "2-digit",
+          month: "short",
+        }),
+        durasi: parseFloat(durasi.toFixed(2)), // 2 desimal
+      };
+    });
+  };
 
   // ====== RENDER ======
   return (
@@ -716,13 +811,51 @@ export default function DashboardUser() {
               </div>
             )}
 
-            {/* DATA PRESENSI (placeholder) */}
             {page === "data" && (
-              <div className="bg-white rounded-xl border p-4">
-                <div className="font-semibold mb-4">Data Presensi</div>
-                <div className="text-sm text-gray-500">
-                  Tabel data presensi bisa ditaruh di sini (hubungkan ke endpoint listing presensi).
+              <div className="bg-white rounded-xl border p-6">
+                <div className="font-semibold mb-4">
+                  📊 Grafik Jam Kerja per Hari -{" "}
+                  {new Date().toLocaleString("id-ID", { month: "long", year: "numeric" })}
                 </div>
+
+                {/* Grafik Batang */}
+                {calculateWorkHours().length > 0 ? (
+                  <ResponsiveContainer width="100%" height={320}>
+                    <BarChart data={calculateWorkHours()}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="tanggal" />
+                      <YAxis
+                        label={{
+                          value: "Jam Kerja",
+                          angle: -90,
+                          position: "insideLeft",
+                          offset: 0,
+                        }}
+                        tickFormatter={(v) => `${v}`}
+                      />
+                      <Tooltip
+                        formatter={(value) => `${value} jam`}
+                        labelStyle={{ fontWeight: "bold" }}
+                      />
+                      <Legend />
+                      <Bar
+                        dataKey="durasi"
+                        fill="#4f46e5"
+                        name="Total Jam Kerja"
+                        radius={[6, 6, 0, 0]}
+                      />
+                    </BarChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="text-center text-sm text-gray-500 py-16">
+                    Belum ada data jam kerja dengan absen pulang di bulan ini.
+                  </div>
+                )}
+
+                {/* Info tambahan */}
+                <p className="text-xs text-gray-500 mt-4 text-center">
+                  Data dihitung berdasarkan waktu masuk dan pulang yang tercatat pada sistem.
+                </p>
               </div>
             )}
 

@@ -1,7 +1,3 @@
-Tentu, ini adalah file **README.md** yang siap kamu upload. Saya sudah menyusunnya agar terlihat profesional, mencakup struktur folder kamu yang unik (`system/backend` dan `frontend`), cara instalasi, dan penjelasan fitur lengkap.
-
-Silakan copy kode di bawah ini, buat file bernama `README.md` di folder paling luar (root) proyek kamu, lalu paste isinya.
-
 ````markdown
 # 📍 PresensiKu - Sistem Presensi Digital Berbasis GPS
 

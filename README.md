@@ -1,6 +1,6 @@
 # 📍 PresensiKu - Sistem Presensi Digital Berbasis GPS
 
-````markdown
+
 
 ![Status](https://img.shields.io/badge/Status-Development-orange)
 ![Stack](https://img.shields.io/badge/Stack-MERN%20%2B%20Supabase-blue)
@@ -8,13 +8,13 @@
 
 **PresensiKu** adalah aplikasi manajemen kehadiran modern yang dirancang untuk perusahaan multi-shift. Aplikasi ini menggunakan **Geofencing (GPS)** untuk memvalidasi lokasi karyawan saat absen, dilengkapi dengan sistem pengajuan izin, manajemen shift, dan laporan kehadiran real-time.
 
----
+
 
 ## 📂 Struktur Project (Monorepo)
 
 Project ini memiliki dua `package.json` terpisah karena Frontend dan Backend dipisahkan dalam folder berbeda.
 
-```text
+````
 root-project/
 ├── .env                  <-- File Environment Variable (Simpan di sini)
 ├── frontend/             <-- Aplikasi Client (React + Vite)

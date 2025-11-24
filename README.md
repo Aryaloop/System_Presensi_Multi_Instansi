@@ -129,9 +129,6 @@ npm install
 Buat file bernama `.env` di **folder paling luar (Root)** proyek ini. Copy konfigurasi di bawah:
 
 ```env
-# --- SERVER CONFIG ---
-PORT=5000
-NODE_ENV=development
 
 # --- DATABASE (SUPABASE) ---
 # Dapatkan ini dari Dashboard Supabase -> Project Settings -> API
@@ -141,10 +138,6 @@ SUPABASE_KEY=your-supabase-anon-key
 # --- SECURITY (JWT) ---
 # Isi dengan string acak yang panjang
 JWT_SECRET=rahasia_super_aman_ganti_ini
-
-# --- FRONTEND URL ---
-# Agar cookie bisa dikirim (CORS)
-FRONTEND_URL=http://localhost:3000
 
 # --- EMAIL SERVICE (Nodemailer) ---
 # Gunakan App Password Gmail, bukan password login biasa
@@ -205,5 +198,3 @@ Pull Request dipersilakan. Untuk perubahan besar, harap buka issue terlebih dahu
 
 Created with ❤️ by **PresensiKita**
 
-```
-```

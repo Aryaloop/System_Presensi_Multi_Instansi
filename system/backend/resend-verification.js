@@ -5,7 +5,7 @@ import dotenv from "dotenv";
 import { v4 as uuidv4 } from "uuid";
 import { sendEmail } from "./emailService.js";
 import path from "path";
-dotenv.config({ path: path.resolve("../.env") });
+dotenv.config({ path: path.resolve("../../.env") });
 const router = express.Router();
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
 

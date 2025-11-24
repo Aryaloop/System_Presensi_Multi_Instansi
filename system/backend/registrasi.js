@@ -8,7 +8,7 @@ import crypto from "crypto";
 import path from "path";
 import { sendEmail } from "./emailService.js";
 
-dotenv.config({ path: path.resolve("../.env") });
+dotenv.config({ path: path.resolve("../../.env") });
 const router = express.Router();
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
 

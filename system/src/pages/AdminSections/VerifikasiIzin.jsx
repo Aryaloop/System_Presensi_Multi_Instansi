@@ -4,15 +4,15 @@ import axios from "axios";
 import Swal from "sweetalert2";
 
 export default function VerifikasiIzin() {
-  const id_perusahaan = localStorage.getItem("id_perusahaan");
   const [izinData, setIzinData] = useState([]);
   const [izinPage, setIzinPage] = useState(1);
   const izinLimit = 10;
   const [totalIzin, setTotalIzin] = useState(0);
 
   const fetchIzinList = async () => {
+    // URL Bersih
     const res = await axios.get(
-      `/api/admin/izin/${id_perusahaan}?page=${izinPage}&limit=${izinLimit}`
+      `/api/admin/izin?page=${izinPage}&limit=${izinLimit}`
     );
     setIzinData(res.data.data);
     setTotalIzin(res.data.total);

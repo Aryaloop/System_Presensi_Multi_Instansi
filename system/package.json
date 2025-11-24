@@ -1,37 +1,26 @@
 {
-  "name": "frontend",
-  "private": true,
-  "version": "0.0.0",
+  "name": "project-frontend",
+  "version": "1.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
-    "preview": "vite preview",
-    "server": "node index.js"
+    "preview": "vite preview"
   },
   "dependencies": {
     "@emailjs/browser": "^4.4.1",
-    "@supabase/supabase-js": "^2.75.0",
     "@tanstack/react-query": "^5.90.5",
     "axios": "^1.12.2",
-    "bcryptjs": "^3.0.2",
-    "compression": "^1.8.1",
-    "cors": "^2.8.5",
-    "dotenv": "^17.2.3",
     "emailjs": "^4.0.3",
-    "express": "^5.1.0",
     "geolib": "^3.3.4",
-    "jsonwebtoken": "^9.0.2",
-    "nodemailer": "^7.0.9",
     "react": "^19.1.1",
     "react-calendar": "^6.0.0",
     "react-dom": "^19.1.1",
     "react-google-recaptcha": "^3.1.0",
     "react-router-dom": "^7.9.4",
     "recharts": "^3.3.0",
-    "sweetalert2": "^11.26.3",
-    "uuid": "^13.0.0"
+    "sweetalert2": "^11.26.3"
   },
   "devDependencies": {
     "@eslint/js": "^9.36.0",

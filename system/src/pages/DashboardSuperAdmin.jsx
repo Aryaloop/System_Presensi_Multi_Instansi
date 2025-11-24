@@ -175,15 +175,25 @@ export default function DashboardSuperAdmin() {
       showCancelButton: true,
       confirmButtonText: "Ya, logout",
       cancelButtonText: "Batal",
-    }).then((result) => {
+    }).then(async (result) => { // Tambahkan async di sini
       if (result.isConfirmed) {
-        localStorage.clear();
-        navigate("/login");
-        Swal.fire({ icon: "success", title: "Logout berhasil!", timer: 1500, showConfirmButton: false });
+        try {
+          // ✅ 1. Panggil API Logout untuk hapus Cookie di browser
+          await axios.post("/api/logout"); 
+          
+          // 2. Bersihkan localStorage (jika masih ada sisa data user)
+          localStorage.clear();
+          
+          // 3. Redirect
+          navigate("/login");
+          Swal.fire({ icon: "success", title: "Logout berhasil!", timer: 1500, showConfirmButton: false });
+        } catch (error) {
+          console.error("Gagal logout", error);
+        }
       }
     });
   };
-
+  
   const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
 
   const handleAddPerusahaan = async (payload) => {

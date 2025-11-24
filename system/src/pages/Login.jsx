@@ -40,12 +40,17 @@ export default function Login() {
         timer: 1500,
       });
 
+      console.log("DEBUG ROLE:", role, id_jabatan); // Cek di console browser
+
       // 🔀 Arahkan sesuai role
       if (id_jabatan === "SPRADM" || role === "SUPERADMIN") {
         navigate("/dashboard_super_admin");
-      } else if (id_jabatan === "ADMIN") {
+      }
+      // Cek kedua variasi (id_jabatan ATAU role) untuk Admin
+      else if (id_jabatan === "ADMIN" || role === "ADMIN") {
         navigate("/dashboard_admin");
-      } else {
+      }
+      else {
         navigate("/dashboard_user");
       }
     }

@@ -41,7 +41,6 @@ const dotClass = (st) =>
 
 
 export default function DataPresensi() {
-  const idAkun = localStorage.getItem("id_akun");
   const today = new Date();
 
   // ===========================================================================
@@ -59,10 +58,10 @@ export default function DataPresensi() {
   // DATA FETCHING (useQuery)
   // ===========================================================================
   const { data: kehadiranData, isLoading } = useQuery({
-    queryKey: ["kehadiran", idAkun, bulan, tahun], // Kunci unik
+    queryKey: ["kehadiran", bulan, tahun], // Kunci unik
     queryFn: async () => {
-      const res = await axios.get(`/api/user/kehadiran/${idAkun}?bulan=${bulan}&tahun=${tahun}`);
-      return (res.data.data || []);
+      const res = await axios.get(`/api/user/kehadiran?bulan=${bulan}&tahun=${tahun}`);
+      return (res.data.data || []); // Pastikan ini mengambil array yang benar
     },
     onError: () => {
       // (handle error, mungkin pakai toast)

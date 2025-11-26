@@ -4,53 +4,53 @@ import axios from "axios";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import Swal from "sweetalert2";
 
-// Helper (Sudah Benar)
+// Helper
 const toLocalDate = (utcString) => {
   const date = new Date(utcString);
   return new Date(date.toLocaleString("en-US", { timeZone: "Asia/Jakarta" }));
 };
 
 export default function CardAbsenGPS() {
-  const id_akun = localStorage.getItem("id_akun");
   const queryClient = useQueryClient();
   const today = new Date();
 
-  // State Lokal (Sudah Benar)
+  // State
   const [loading, setLoading] = useState(false);
   const [coords, setCoords] = useState({ lat: "", long: "" });
   const [gpsReady, setGpsReady] = useState(false);
-  const [statusArea, setStatusArea] = useState("...");
+  const [statusArea, setStatusArea] = useState("Menunggu Lokasi...");
   const [belumJamKerja, setBelumJamKerja] = useState(false);
 
-  // Ambil data Lokasi & Shift (Sudah Benar)
-  const { data: lokasiData } = useQuery({
-    queryKey: ["lokasiShift", id_akun],
-    queryFn: async () =>
-      (await axios.get(`/api/user/lokasi-shift/${id_akun}`)).data,
+  // 1. Fetch Data Lokasi & Shift
+  const { data: dataResponse, isLoading: loadingData } = useQuery({
+    queryKey: ["lokasiShift"],
+    queryFn: async () => {
+      // Pastikan URL benar, jika local dev mungkin perlu full URL atau proxy setting
+      const res = await axios.get(`/api/user/lokasi-shift`); 
+      return res.data;
+    },
+    retry: 1, // Jangan retry terus menerus jika 404
   });
-  const lokasiKantor = lokasiData?.perusahaan;
-  const jamShift = lokasiData?.shift;
 
-  // Ambil data Kehadiran (Sudah Benar)
+  const lokasiKantor = dataResponse?.perusahaan;
+  const jamShift = dataResponse?.shift; // Bisa null jika user tidak punya shift
+
+  // 2. Fetch Data Kehadiran
   const { data: kehadiranData } = useQuery({
-    queryKey: ["kehadiran", id_akun, today.getMonth() + 1, today.getFullYear()],
+    queryKey: ["kehadiran", today.getMonth() + 1, today.getFullYear()],
     queryFn: async () => {
       const res = await axios.get(
-        `/api/user/kehadiran/${id_akun}?bulan=${
-          today.getMonth() + 1
-        }&tahun=${today.getFullYear()}`
+        `/api/user/kehadiran?bulan=${today.getMonth() + 1}&tahun=${today.getFullYear()}`
       );
       return res.data.data || [];
     },
   });
   const kehadiran = kehadiranData || [];
 
-  // Logic GPS (Sudah Benar)
+  // 3. Logic GPS (Promise based)
   const handleGetLocation = () =>
     new Promise((resolve, reject) => {
-      if (!navigator.geolocation) {
-        return reject("Browser Anda tidak mendukung GPS.");
-      }
+      if (!navigator.geolocation) return reject("Browser tidak dukung GPS.");
       navigator.geolocation.getCurrentPosition(
         (pos) => {
           const { latitude, longitude } = pos.coords;
@@ -58,224 +58,169 @@ export default function CardAbsenGPS() {
           setGpsReady(true);
           resolve({ latitude, longitude });
         },
-        (err) => {
-          if (err.code === 1) {
-            return reject("Izin lokasi ditolak. Harap aktifkan di pengaturan browser Anda.");
-          }
-          return reject("Gagal mendapatkan lokasi: " + err.message);
-        },
+        (err) => reject(err.message),
         { enableHighAccuracy: true, timeout: 10000 }
       );
     });
 
-  // Init GPS (Sudah Benar)
+  // Init GPS
   useEffect(() => {
-    handleGetLocation().catch((err) => console.warn(err));
+    handleGetLocation().catch(() => {}); // Silent catch on init
   }, []);
 
-  // Cek Status Area (Sudah Benar)
+  // 4. Cek Status Area (Realtime)
   useEffect(() => {
     if (lokasiKantor && coords.lat && coords.long) {
-      const dx = 111_000 * (coords.lat - lokasiKantor.latitude);
-      const dy = 111_000 * (coords.long - lokasiKantor.longitude);
+      const dx = 111000 * (coords.lat - lokasiKantor.latitude);
+      const dy = 111000 * (coords.long - lokasiKantor.longitude);
       const jarak = Math.sqrt(dx * dx + dy * dy);
+      
       setStatusArea(
-        jarak <= lokasiKantor.radius_m ? "Dalam Area" : "Luar Area"
+        jarak <= lokasiKantor.radius_m 
+          ? "✅ Dalam Area" 
+          : `❌ Luar Area (${Math.floor(jarak)}m)`
       );
     }
   }, [lokasiKantor, coords]);
 
-  // Cek Jam Kerja (Sudah Benar)
+  // 5. Cek Jam Kerja (Logic diperbaiki untuk Shift Kosong)
   useEffect(() => {
-    if (!jamShift?.jam_masuk) return;
+    // Jika tidak ada shift atau tidak ada jam masuk, anggap boleh absen kapan saja
+    if (!jamShift?.jam_masuk) {
+      setBelumJamKerja(false); 
+      return;
+    }
+
     const tick = () => {
       const now = new Date();
       const [h, m] = jamShift.jam_masuk.split(":");
       const jm = new Date();
       jm.setHours(parseInt(h), parseInt(m), 0, 0);
+      
+      // Logika: Jika sekarang < jam masuk, maka belum jam kerja
       setBelumJamKerja(now < jm);
     };
+
     tick();
-    const id = setInterval(tick, 60_000);
+    const id = setInterval(tick, 60000);
     return () => clearInterval(id);
   }, [jamShift]);
 
-  // ===================================================================
-  // PERBAIKAN: Handler Absensi dengan Alert Spesifik
-  // ===================================================================
+  // Handler Absen
   const handleAttendance = async (tipe) => {
-    if (!id_akun) return;
     setLoading(true);
-
-    let currentCoords;
     try {
-      // 1. Selalu ambil lokasi terbaru saat tombol ditekan
+      // Validasi 1: Lokasi Kantor harus ada
+      if (!lokasiKantor) throw new Error("Data lokasi kantor belum dimuat.");
+
+      // Validasi 2: Ambil GPS Terbaru
       const { latitude, longitude } = await handleGetLocation();
-      currentCoords = { lat: latitude, long: longitude };
-    } catch (err) {
-      // 2. Tampilkan error GPS yang spesifik
-      Swal.fire(
-        "⚠️ GPS Gagal",
-        `Tidak dapat mengambil lokasi Anda. Pastikan GPS aktif dan Anda memberi izin. (${err})`,
-        "warning"
-      );
-      setLoading(false);
-      return;
-    }
-
-    // 3. Hitung status area saat ini juga (jangan bergantung pada state)
-    let currentStatusArea = "Luar Area";
-    if (lokasiKantor) {
-      const dx = 111_000 * (currentCoords.lat - lokasiKantor.latitude);
-      const dy = 111_000 * (currentCoords.long - lokasiKantor.longitude);
+      
+      // Validasi 3: Hitung Jarak
+      const dx = 111000 * (latitude - lokasiKantor.latitude);
+      const dy = 111000 * (longitude - lokasiKantor.longitude);
       const jarak = Math.sqrt(dx * dx + dy * dy);
-      currentStatusArea =
-        jarak <= lokasiKantor.radius_m ? "Dalam Area" : "Luar Area";
-      setStatusArea(currentStatusArea); // Update UI
-    }
 
-    // 4. Validasi spesifik SEBELUM kirim ke API
-    if (tipe === "MASUK" && currentStatusArea !== "Dalam Area") {
-      Swal.fire(
-        "❌ Di Luar Area",
-        "Anda harus berada di dalam radius kantor untuk melakukan Absen MASUK.",
-        "error"
-      );
-      setLoading(false);
-      return;
-    }
+      // Cek Radius
+      if (jarak > lokasiKantor.radius_m) {
+        throw new Error(`Anda berada di luar radius kantor (${Math.floor(jarak)}m).`);
+      }
 
-    // 5. Kirim data LENGKAP ke backend
-    try {
+      // Kirim ke API
       const payload = {
-        id_akun: id_akun,
-        tipe: tipe, // 'MASUK' atau 'KELUAR'
-        latitude: currentCoords.lat,
-        longitude: currentCoords.long,
-        status_area: currentStatusArea,
+        tipe,
+        latitude,
+        longitude,
       };
 
       const res = await axios.post("/api/user/absen", payload);
-      Swal.fire("✅ Berhasil", res.data.message, "success");
-
-      // 6. Refresh data yang relevan
-      queryClient.invalidateQueries({
-        queryKey: ["kehadiran", id_akun],
-      });
-      queryClient.invalidateQueries({
-        queryKey: ["izinSummary", id_akun],
-      });
+      Swal.fire("Berhasil", res.data.message, "success");
+      
+      // Refresh Data
+      queryClient.invalidateQueries({ queryKey: ["kehadiran"] });
+      
     } catch (err) {
-      // Ini HANYA akan error jika backend gagal (bukan karena data tidak lengkap)
-      Swal.fire(
-        "❌ Gagal Absen",
-        err.response?.data?.message || "Terjadi error di server.",
-        "error"
-      );
+      const msg = err.response?.data?.message || err.message || "Gagal Absen";
+      Swal.fire("Gagal", msg, "error");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleConfirmKeluar = () => {
-    Swal.fire({
-      title: "Absen Pulang?",
-      text: "Apakah Anda yakin ingin melakukan absen pulang sekarang?",
-      icon: "question",
-      showCancelButton: true,
-      confirmButtonText: "Ya, Pulang",
-      cancelButtonText: "Batal",
-    }).then((r) => r.isConfirmed && handleAttendance("KELUAR"));
-  };
-
-  // Status Hari ini (Sudah Benar)
+  // Status Hari Ini
   const kehadiranHariIni = kehadiran.find((d) => {
     const created = toLocalDate(d.created_at);
     return created.toDateString() === today.toDateString();
   });
-  const isIzinToday = ["IZIN", "WFH"].includes(kehadiranHariIni?.status);
-  const sudahAbsenMasukToday =
-    kehadiranHariIni?.jam_masuk !== null &&
-    ["HADIR", "TERLAMBAT"].includes(kehadiranHariIni?.status);
+  
+  const sudahAbsenMasuk = kehadiranHariIni?.status && ["HADIR", "TERLAMBAT"].includes(kehadiranHariIni.status);
+  const isIzin = ["IZIN", "WFH"].includes(kehadiranHariIni?.status);
+  const jamMasukDisplay = jamShift?.jam_masuk ? `${jamShift.jam_masuk} WIB` : "(Non-Shift)";
+  const jamPulangDisplay = jamShift?.jam_pulang ? `${jamShift.jam_pulang} WIB` : "(Non-Shift)";
 
-  // JSX (Sudah Benar)
+  if (loadingData) return <div className="p-4 bg-white rounded border">⏳ Memuat data kantor...</div>;
+
   return (
-    <div className="bg-white rounded-xl border">
+    <div className="bg-white rounded-xl border shadow-sm">
       <div className="p-4 border-b flex items-center justify-between">
-        <h3 className="font-semibold">Absen GPS</h3>
-        <span
-          className={`text-xs font-medium ${
-            gpsReady ? "text-green-600" : "text-red-500"
-          }`}
-        >
-          {gpsReady ? "● Lokasi Terdeteksi" : "⚠️ Mencari Lokasi..."}
+        <h3 className="font-semibold text-gray-800">📍 Absen GPS</h3>
+        <span className={`text-xs font-medium px-2 py-1 rounded ${gpsReady ? "bg-green-100 text-green-700" : "bg-red-100 text-red-600"}`}>
+          {gpsReady ? "GPS Aktif" : "Cari Lokasi..."}
         </span>
       </div>
+
       <div className="p-4">
-        {/* Tombol Masuk / Pulang */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {/* Tombol Masuk */}
           <button
             onClick={() => handleAttendance("MASUK")}
-            disabled={
-              loading ||
-              isIzinToday ||
-              sudahAbsenMasukToday ||
-              belumJamKerja
-            }
-            className={`h-12 rounded-lg text-white font-semibold transition ${
-              loading || isIzinToday || sudahAbsenMasukToday || belumJamKerja
-                ? "bg-gray-400 cursor-not-allowed"
-                : "bg-green-600 hover:bg-green-700"
-            }`}
+            disabled={loading || isIzin || sudahAbsenMasuk || belumJamKerja}
+            className={`h-14 rounded-lg font-semibold text-white transition flex flex-col items-center justify-center 
+              ${(loading || isIzin || sudahAbsenMasuk || belumJamKerja) ? "bg-gray-400 cursor-not-allowed" : "bg-emerald-600 hover:bg-emerald-700 active:scale-95"}`}
           >
-            {sudahAbsenMasukToday
-              ? "Sudah Absen Masuk"
-              : belumJamKerja
-              ? "Belum Waktunya Masuk"
-              : "Absen Masuk"}
-            <span className="block text-[11px] font-normal">
-              {jamShift?.jam_masuk ? `${jamShift.jam_masuk} WIB` : "..."}
+            <span className="text-sm">
+              {sudahAbsenMasuk ? "✅ Sudah Absen Masuk" : belumJamKerja ? "⏳ Belum Jam Masuk" : "Tekan untuk Absen Masuk"}
+            </span>
+            <span className="text-xs opacity-80 font-normal mt-0.5">
+              Jadwal: {jamMasukDisplay}
             </span>
           </button>
 
+          {/* Tombol Pulang */}
           <button
-            onClick={handleConfirmKeluar}
-            disabled={loading || isIzinToday || !sudahAbsenMasukToday}
-            className={`h-12 rounded-lg text-white font-semibold transition ${
-              loading || isIzinToday || !sudahAbsenMasukToday
-                ? "bg-gray-400 cursor-not-allowed"
-                : "bg-gray-600 hover:bg-gray-700"
-            }`}
+            onClick={() => {
+                Swal.fire({
+                    title: "Konfirmasi Pulang",
+                    text: "Yakin ingin absen pulang?",
+                    icon: "question",
+                    showCancelButton: true,
+                    confirmButtonText: "Ya",
+                }).then((r) => r.isConfirmed && handleAttendance("KELUAR"));
+            }}
+            disabled={loading || !sudahAbsenMasuk}
+            className={`h-14 rounded-lg font-semibold text-white transition flex flex-col items-center justify-center
+              ${(loading || !sudahAbsenMasuk) ? "bg-gray-400 cursor-not-allowed" : "bg-indigo-600 hover:bg-indigo-700 active:scale-95"}`}
           >
-            Absen Pulang
-            <span className="block text-[11px] font-normal">
-              {jamShift?.jam_pulang ? `${jamShift.jam_pulang} WIB` : "..."}
+            <span className="text-sm">Absen Pulang</span>
+            <span className="text-xs opacity-80 font-normal mt-0.5">
+              Jadwal: {jamPulangDisplay}
             </span>
           </button>
         </div>
 
-        {/* Info lokasi kantor & koordinat */}
-        <div className="mt-4 rounded-lg bg-gray-50 border p-3">
-          <div className="text-[11px] text-gray-500">
-            {lokasiKantor?.alamat || "Memuat lokasi..."}
-          </div>
-          <div className="text-[11px] text-gray-400">
-            Radius {lokasiKantor?.radius_m || "-"}m · Status: {statusArea}
-          </div>
-          <div className="grid grid-cols-2 gap-3 mt-3">
-            <input
-              value={coords.lat}
-              readOnly
-              placeholder="LAT"
-              className="h-9 rounded border px-2 text-sm bg-white"
-            />
-            <input
-              value={coords.long}
-              readOnly
-              placeholder="LONG"
-              className="h-9 rounded border px-2 text-sm bg-white"
-            />
-          </div>
+        {/* Info Box */}
+        <div className="mt-5 bg-slate-50 border rounded-lg p-3 text-xs text-gray-600 space-y-2">
+           <div className="flex justify-between border-b pb-2">
+              <span>🏢 {lokasiKantor?.nama_perusahaan || "Kantor"}</span>
+              <span className={statusArea.includes("Dalam") ? "text-green-600 font-bold" : "text-red-500 font-bold"}>
+                {statusArea}
+              </span>
+           </div>
+           <div>{lokasiKantor?.alamat || "Alamat belum disetting"}</div>
+           <div className="flex gap-2">
+              <input value={coords.lat} readOnly className="w-1/2 p-1 border rounded bg-white text-center" placeholder="Lat" />
+              <input value={coords.long} readOnly className="w-1/2 p-1 border rounded bg-white text-center" placeholder="Long" />
+           </div>
         </div>
       </div>
     </div>

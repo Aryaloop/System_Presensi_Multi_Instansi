@@ -6,21 +6,22 @@ import Swal from "sweetalert2";
 
 export default function KaryawanManager() {
   const queryClient = useQueryClient();
-  const id_perusahaan = localStorage.getItem("id_perusahaan");
   const [currentPage, setCurrentPage] = useState(1);
   const [showEditForm, setShowEditForm] = useState(false);
   const [selectedKaryawan, setSelectedKaryawan] = useState(null);
+  
+  // 1. State untuk menyimpan daftar shift (agar dropdown tidak kosong)
   const [shiftList, setShiftList] = useState([]);
   const limit = 20;
 
   // =============================
-  // 📡 Ambil data karyawan per halaman
+  // 📡 Ambil Data Karyawan (Pakai React Query)
   // =============================
   const { data: karyawanData = { data: [], total: 0 }, isLoading, isError } = useQuery({
-    queryKey: ["karyawan", id_perusahaan, currentPage],
+    queryKey: ["karyawan", currentPage],
     queryFn: async () => {
       const res = await axios.get(
-        `/api/admin/karyawan/${id_perusahaan}?page=${currentPage}&limit=${limit}`
+        `/api/admin/karyawan?page=${currentPage}&limit=${limit}`
       );
       return res.data;
     },
@@ -28,22 +29,24 @@ export default function KaryawanManager() {
   });
 
   const handleRefresh = () =>
-    queryClient.invalidateQueries(["karyawan", id_perusahaan, currentPage]);
+    queryClient.invalidateQueries(["karyawan", currentPage]);
 
   // =============================
-  // ⚙️ Fetch shift untuk dropdown edit
+  // ⚙️ Ambil Daftar Shift untuk Dropdown
   // =============================
   const fetchShiftList = async () => {
     try {
-      const res = await axios.get(`/api/admin/shift/${id_perusahaan}`);
+      const res = await axios.get("/api/admin/shift");
       setShiftList(res.data.data);
     } catch (err) {
-      console.error("❌ Gagal memuat shift:", err);
+      console.error("Gagal ambil shift", err);
     }
   };
 
   useEffect(() => {
-    fetchShiftList();
+    // ❌ DULU ERROR DISINI: fetchKaryawan(); (Fungsi ini tidak ada, makanya blank)
+    // ✅ GANTI DENGAN INI:
+    fetchShiftList(); 
   }, []);
 
   // =============================
@@ -67,7 +70,7 @@ export default function KaryawanManager() {
   };
 
   // =============================
-  // 🔴 Hapus Karyawan (pakai Swal)
+  // 🔴 Hapus Karyawan
   // =============================
   const handleDeleteKaryawan = async (id_akun) => {
     const confirmDelete = await Swal.fire({
@@ -93,7 +96,7 @@ export default function KaryawanManager() {
   };
 
   // =============================
-  // 🧱 Render UI
+  // 🧱 Tampilan UI
   // =============================
   return (
     <section>
@@ -225,24 +228,26 @@ export default function KaryawanManager() {
                 placeholder="Alamat"
                 className="w-full border p-2 rounded"
               />
+              
+              {/* ✅ PERBAIKAN DROPDOWN SHIFT */}
+              <label className="block text-sm font-medium text-gray-700">Pilih Shift</label>
               <select
                 name="id_shift"
                 value={selectedKaryawan.id_shift || ""}
                 onChange={(e) =>
-                  setSelectedKaryawan({ ...selectedKaryawan, id_shift: e.target.value })
-                }
-                className="w-full border p-2 rounded"
-                required
+                    setSelectedKaryawan({ ...selectedKaryawan, id_shift: e.target.value })
+                }   
+                className="border p-2 rounded w-full"
               >
                 <option value="">-- Pilih Shift --</option>
-                {shiftList.map((s) => (
-                  <option key={s.id_shift} value={s.id_shift}>
-                    {s.nama_shift} ({s.jam_masuk} - {s.jam_pulang})
+                {shiftList.map((shift) => (
+                  <option key={shift.id_shift} value={shift.id_shift}>
+                    {shift.nama_shift} ({shift.jam_masuk} - {shift.jam_pulang})
                   </option>
                 ))}
               </select>
 
-              <div className="flex justify-end gap-2">
+              <div className="flex justify-end gap-2 mt-4">
                 <button
                   type="button"
                   onClick={() => setShowEditForm(false)}

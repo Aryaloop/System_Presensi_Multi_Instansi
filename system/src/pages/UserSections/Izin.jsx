@@ -4,7 +4,7 @@ import axios from "axios";
 import Swal from "sweetalert2";
 
 export default function Izin() {
-  const idAkun = localStorage.getItem("id_akun");
+
   
   // ===========================================================================
   // STATE LOKAL (Form)
@@ -24,7 +24,6 @@ export default function Izin() {
     try {
       setLoading(true);
       const res = await axios.post("/api/user/izin", {
-        id_akun: idAkun,
         tanggal_mulai,
         tanggal_selesai,
         jenis_izin,

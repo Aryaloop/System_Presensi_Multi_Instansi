@@ -6,7 +6,6 @@ import Calendar from "react-calendar";
 import "react-calendar/dist/Calendar.css";
 
 export default function WidgetKalender() {
-  const idAkun = localStorage.getItem("id_akun");
   const todayStr = new Date().toDateString();
   
   // State untuk melacak bulan/tahun yang dilihat
@@ -14,11 +13,11 @@ export default function WidgetKalender() {
 
   // Ambil data Kehadiran (berdasarkan bulan/tahun yang aktif)
   const { data: kehadiranData } = useQuery({
-    queryKey: ["kehadiran", idAkun, activeDate.getMonth() + 1, activeDate.getFullYear()],
+    queryKey: ["kehadiran", activeDate.getMonth() + 1, activeDate.getFullYear()],
     queryFn: async () => {
        const bulan = activeDate.getMonth() + 1;
        const tahun = activeDate.getFullYear();
-       const res = await axios.get(`/api/user/kehadiran/${idAkun}?bulan=${bulan}&tahun=${tahun}`);
+       const res = await axios.get(`/api/user/kehadiran?bulan=${bulan}&tahun=${tahun}`);
        return res.data.data || [];
     },
     keepPreviousData: true, // Agar kalender lama tidak blank saat ganti bulan

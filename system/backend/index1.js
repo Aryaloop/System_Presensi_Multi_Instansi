@@ -13,13 +13,24 @@ import { sendEmail } from "./emailService.js";
 import { SuperAdminController } from "./superAdmin.js";
 import { CreateAdminController } from "./createAdmin.js";
 import path from "path";
-import userRoute from "./user.js";
-import adminRoutes from "./admin.js";
+// import userRoutes from "./user.js";
+import userRoutes from "./userRoutes/index.js";
+// import adminRoutes from "./admin.js";
+import adminRoutes from "./adminRoutes/index.js";
 
-dotenv.config({ path: path.resolve("../.env") });
+import cookieParser from "cookie-parser"; // <-- Tambahan 1
+import jwt from "jsonwebtoken";           // <-- Tambahan 2
+import { verifyToken, verifyAdmin } from "./authMiddleware.js"; // Sesuaikan path
+
+
+dotenv.config({ path: path.resolve("../../.env") });
 
 const app = express();
-app.use(cors());
+app.use(cors({
+  origin: 'http://localhost:3000', // <-- PENTING: Harus spesifik (jangan '*') supaya cookie bisa lewat
+  credentials: true               // <-- PENTING: Izinkan cookie dikirim
+}));
+app.use(cookieParser());          // <-- Tambahan 3: Aktifkan parser
 app.use(express.json());
 
 // app.use("/api/register", registerRoute);
@@ -61,6 +72,7 @@ const saltRounds = 10;
 // CLASS: AuthController → handle route logic
 // ======================================================
 class AuthController {
+  // --- REGISTER (Tetap sama, tidak perlu diubah) ---
   async register(req, res) {
     try {
       const { username, email, password, id_jabatan, id_perusahaan } = req.body;
@@ -92,31 +104,19 @@ class AuthController {
     }
   }
 
-  // Di dalam class AuthController
+  // --- LOGIN BARU (Dengan JWT & Cookie) ---
+  // --- LOGIN (TANPA CAPTCHA) ---
   async login(req, res) {
     try {
-      const { email, password, captcha } = req.body;
+      // 1. Hapus 'captcha' dari request body
+      const { email, password } = req.body;
 
-      // === ✅ Verifikasi reCAPTCHA dulu ===
-      // if (!captcha) {
-      //   return res.status(400).json({ message: "Captcha diperlukan" });
-      // }
-
-      // const secret = process.env.RECAPTCHA_SECRET;
-      // const verifyUrl = `https://www.google.com/recaptcha/api/siteverify?secret=${secret}&response=${captcha}`;
-      // const response = await fetch(verifyUrl, { method: "POST" });
-      // const data = await response.json();
-
-      // if (!data.success) {
-      //   return res.status(403).json({ message: "Verifikasi captcha gagal." });
-      // }
-
-      // === Lanjut ke proses login normal ===
+      // 2. Cek Email
       const { data: akun, error } = await db.findAkunByEmail(email);
       if (error || !akun)
         return res.status(401).json({ message: "Email tidak terdaftar" });
 
-      // Cek status perusahaan
+      // 3. Cek Status Perusahaan
       const { data: perusahaan, error: perusahaanError } = await db.client
         .from("perusahaan")
         .select("status_aktif")
@@ -127,22 +127,38 @@ class AuthController {
 
       if (perusahaan && perusahaan.status_aktif === false) {
         return res.status(403).json({
-          message:
-            "Akses perusahaan ini sedang dinonaktifkan. Hubungi Super Admin.",
+          message: "Akses perusahaan ini sedang dinonaktifkan. Hubungi Super Admin.",
         });
       }
 
-      // Cek password
+      // 4. Cek Password
       const valid = await bcrypt.compare(password, akun.password);
       if (!valid) return res.status(401).json({ message: "Password salah" });
 
-      // ✅ Login sukses
+      // 5. Generate JWT Token
+      const token = jwt.sign(
+        {
+          id_akun: akun.id_akun,
+          role: akun.id_jabatan,
+          id_perusahaan: akun.id_perusahaan,
+        },
+        process.env.JWT_SECRET,
+        { expiresIn: "1d" }
+      );
+
+      // 6. Simpan Token di HttpOnly Cookie
+      res.cookie("token", token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+        maxAge: 24 * 60 * 60 * 1000,
+      });
+
+      // 7. Response ke Frontend (Pastikan id_jabatan ada!)
       res.json({
         message: "Login berhasil",
-        id_akun: akun.id_akun,
-        id_jabatan: akun.id_jabatan,
         username: akun.username,
-        id_perusahaan: akun.id_perusahaan, // 🟢 tambahkan ini
+        id_jabatan: akun.id_jabatan, // ✅ WAJIB ADA
         role:
           akun.id_jabatan === "SPRADM"
             ? "SUPERADMIN"
@@ -150,15 +166,32 @@ class AuthController {
               ? "ADMIN"
               : "USER",
       });
+
     } catch (err) {
       console.error("Login Error:", err);
       res.status(500).json({ message: "Terjadi kesalahan server" });
     }
   }
 
+  // ---  LOGOUT ---
+  async logout(req, res) {
+    try {
+      // Hapus cookie 'token' dari browser user
+      res.clearCookie("token");
+      res.json({ message: "Logout berhasil" });
+    } catch (err) {
+      console.error("Logout Error:", err);
+      res.status(500).json({ message: "Gagal logout" });
+    }
+  }
+
+  // --- GET USER & HEALTH (Tetap sama) ---
   async getUser(req, res) {
     try {
-      const { id } = req.params;
+      // Sekarang ID diambil dari token middleware (req.user.id_akun), bukan params
+      // Tapi untuk menjaga kompatibilitas kode lama, kita bisa pakai logika fallback
+      const id = req.user?.id_akun || req.params.id;
+
       const { data: user, error } = await db.findAkunById(id);
       if (error || !user) return res.status(404).json({ message: "User tidak ditemukan" });
       res.json(user);
@@ -166,8 +199,6 @@ class AuthController {
       res.status(500).json({ message: "Terjadi kesalahan server" });
     }
   }
-
-
 
   async health(req, res) {
     try {
@@ -196,10 +227,10 @@ const auth = new AuthController();
 //  ROUTING API
 // ======================================================
 app.post("/api/login", (req, res) => auth.login(req, res));
-app.get("/api/user/:id", (req, res) => auth.getUser(req, res));
+// app.get("/api/user/:id", (req, res) => auth.getUser(req, res));
 app.get("/api/health", (req, res) => auth.health(req, res));
 
-// ✅ FORGOT PASSWORD
+//  FORGOT PASSWORD
 app.post("/api/forgot-password", async (req, res) => {
   try {
     const { email } = req.body;
@@ -273,22 +304,31 @@ app.post("/api/reset-password/:token", async (req, res) => {
 
 
 // Super Admin Routing
-app.get("/api/superadmin/perusahaan", SuperAdminController.getAllPerusahaan);
-app.get("/api/superadmin/admins", SuperAdminController.getAllAdmins);
-app.put("/api/superadmin/suspend/:id", SuperAdminController.suspendPerusahaan);
-app.post("/api/superadmin/perusahaan", SuperAdminController.createPerusahaan);
-app.put("/api/superadmin/perusahaan/:id", SuperAdminController.updatePerusahaan);
-app.delete("/api/superadmin/perusahaan/:id", SuperAdminController.deletePerusahaan);
-app.post("/api/superadmin/create-admin", CreateAdminController.createAdmin);
+const superAdminRouter = express.Router();
+superAdminRouter.use(verifyToken, verifyAdmin);
 
+
+superAdminRouter.get("/perusahaan", SuperAdminController.getAllPerusahaan);
+superAdminRouter.get("/admins", SuperAdminController.getAllAdmins);
+superAdminRouter.put("/suspend/:id", SuperAdminController.suspendPerusahaan);
+superAdminRouter.post("/perusahaan", SuperAdminController.createPerusahaan);
+superAdminRouter.put("/perusahaan/:id", SuperAdminController.updatePerusahaan);
+superAdminRouter.delete("/perusahaan/:id", SuperAdminController.deletePerusahaan);
+superAdminRouter.post("/create-admin", CreateAdminController.createAdmin);
+app.use("/api/superadmin", superAdminRouter);
 
 
 // Routing User
-app.use("/api/user", userRoute);
+app.use("/", userRoutes);
+// Note: Kenapa "/", bukan "/api/user"? 
+// Karena di dalam file userAbsen.js dkk, kita sudah menulis "/api/user/..." secara lengkap.
+// Jika di sini ditulis "/api/user" lagi, nanti jadinya "/api/user/api/user/..." (double).
 
 // Admin Routing
-app.use("/", adminRoutes);
+app.use("/", adminRoutes);       // admin.js sudah pakai verifyToken di dalamnya
 
+// Logout Routing
+app.post("/api/logout", (req, res) => auth.logout(req, res));
 
 // ======================================================
 // 🌐 START SERVER

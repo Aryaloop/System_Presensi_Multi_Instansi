@@ -4,7 +4,7 @@ import axios from "axios";
 import Swal from "sweetalert2";
 
 export default function AbsenKaryawan() {
-  const id_perusahaan = localStorage.getItem("id_perusahaan");
+  // const id_perusahaan = localStorage.getItem("id_perusahaan");
   const [bulan, setBulan] = useState(new Date().getMonth() + 1);
   const [tahun, setTahun] = useState(new Date().getFullYear());
   const [dataAbsen, setDataAbsen] = useState([]);
@@ -18,8 +18,9 @@ export default function AbsenKaryawan() {
   const fetchAbsenBulanan = async () => {
     try {
       setIsLoading(true);
+      // Cukup panggil endpointnya, backend baca ID dari cookie
       const res = await axios.get(
-        `/api/admin/kehadiran-bulanan/${id_perusahaan}?bulan=${bulan}&tahun=${tahun}&page=${page}&limit=${limit}`
+        `/api/admin/kehadiran-bulanan?bulan=${bulan}&tahun=${tahun}&page=${page}&limit=${limit}`
       );
       setDataAbsen(res.data.data);
     } catch (err) {

@@ -10,28 +10,27 @@ const toLocalDate = (utcString) => {
 };
 
 export default function StatCards() {
-  const idAkun = localStorage.getItem("id_akun");
   const today = new Date();
 
   // 1. Ambil data Izin Summary
   const { data: izinData } = useQuery({
-    queryKey: ["izinSummary", idAkun],
-    queryFn: async () => (await axios.get(`/api/user/izin/summary/${idAkun}`)).data,
+    queryKey: ["izinSummary"],
+    queryFn: async () => (await axios.get(`/api/user/izin/summary`)).data,
   });
 
   // 2. Ambil data Kehadiran (hanya untuk bulan ini, untuk status hari ini)
   const { data: kehadiranData } = useQuery({
-    queryKey: ["kehadiran", idAkun, today.getMonth() + 1, today.getFullYear()],
+    queryKey: ["kehadiran", today.getMonth() + 1, today.getFullYear()],
     queryFn: async () => {
-       const res = await axios.get(`/api/user/kehadiran/${idAkun}?bulan=${today.getMonth() + 1}&tahun=${today.getFullYear()}`);
+       const res = await axios.get(`/api/user/kehadiran?bulan=${today.getMonth() + 1}&tahun=${today.getFullYear()}`);
        return res.data.data || [];
     },
   });
   
   // 3. Ambil data Shift (untuk jam kerja)
   const { data: shiftData } = useQuery({
-    queryKey: ["lokasiShift", idAkun],
-    queryFn: async () => (await axios.get(`/api/user/lokasi-shift/${idAkun}`)).data,
+    queryKey: ["lokasiShift"],
+    queryFn: async () => (await axios.get(`/api/user/lokasi-shift`)).data,
   });
 
   // Kalkulasi status hari ini

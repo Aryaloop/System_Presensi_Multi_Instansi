@@ -4,7 +4,6 @@ import axios from "axios";
 import Swal from "sweetalert2";
 
 export default function JadwalShift() {
-  const id_perusahaan = localStorage.getItem("id_perusahaan");
   const [shiftList, setShiftList] = useState([]);
   const [showShiftForm, setShowShiftForm] = useState(false);
   const [shiftForm, setShiftForm] = useState({
@@ -21,7 +20,7 @@ export default function JadwalShift() {
   // =============================
   const fetchShiftList = async () => {
     try {
-      const res = await axios.get(`/api/admin/shift/${id_perusahaan}`);
+      const res = await axios.get(`/api/admin/shift`); // URL Bersih
       setShiftList(res.data.data);
     } catch (err) {
       console.error("❌ Gagal memuat shift:", err);
@@ -51,7 +50,8 @@ export default function JadwalShift() {
         : "/api/admin/shift";
       const method = editShift ? axios.put : axios.post;
 
-      await method(url, { ...shiftForm, id_perusahaan });
+      // Cukup kirim form shift saja, backend otomatis tahu ini shift untuk perusahaan siapa
+      await method(url, { ...shiftForm });
       Swal.fire("✅ Berhasil", `Shift berhasil ${editShift ? "diedit" : "ditambahkan"}`, "success");
       setShowShiftForm(false);
       setEditShift(false);

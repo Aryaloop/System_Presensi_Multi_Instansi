@@ -4,13 +4,13 @@ import axios from "axios";
 import Swal from "sweetalert2"; // ✅ Tambahkan ini
 
 export default function PerusahaanManager() {
-  const id_perusahaan = localStorage.getItem("id_perusahaan");
   const [perusahaan, setPerusahaan] = useState({});
 
   useEffect(() => {
     const fetchPerusahaan = async () => {
       try {
-        const res = await axios.get(`/api/admin/perusahaan/${id_perusahaan}`);
+        // Panggil endpoint umum, backend akan kasih data perusahaan milik user yg login
+        const res = await axios.get(`/api/admin/perusahaan`);
         setPerusahaan(res.data.data);
       } catch (err) {
         console.error("❌ Gagal memuat data perusahaan:", err);
@@ -19,6 +19,14 @@ export default function PerusahaanManager() {
     };
     fetchPerusahaan();
   }, []);
+
+  if (!perusahaan || Object.keys(perusahaan).length === 0) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <p className="text-gray-500 animate-pulse">⏳ Sedang memuat data perusahaan...</p>
+      </div>
+    );
+  }
 
   return (
     <section>
@@ -33,7 +41,8 @@ export default function PerusahaanManager() {
           onSubmit={async (e) => {
             e.preventDefault();
             try {
-              await axios.put(`/api/admin/perusahaan/${id_perusahaan}`, {
+              // URL bersih, tanpa ID
+              await axios.put(`/api/admin/perusahaan`, {
                 alamat: perusahaan.alamat,
                 latitude: perusahaan.latitude,
                 longitude: perusahaan.longitude,
@@ -63,7 +72,7 @@ export default function PerusahaanManager() {
             <label className="block font-semibold mb-1">ID Perusahaan</label>
             <input
               type="text"
-              value={perusahaan.id_perusahaan || id_perusahaan || ""}
+              value={perusahaan.id_perusahaan || ""}
               disabled
               className="w-full border p-2 rounded bg-gray-100"
             />

@@ -12,25 +12,38 @@ const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY
 
 // GET Karyawan
 router.get("/api/admin/karyawan", async (req, res) => {
-  const id_perusahaan = req.user.id_perusahaan;
-  const limit = parseInt(req.query.limit) || 20;
-  const page = parseInt(req.query.page) || 1;
-  const offset = (page - 1) * limit;
+  try {
+    const id_perusahaan = req.user.id_perusahaan;
+    const limit = parseInt(req.query.limit) || 20;
+    const page = parseInt(req.query.page) || 1;
+    const offset = (page - 1) * limit;
 
-  const { data, error, count } = await supabase
-    .from("akun")
-    .select(`
-      id_akun, username, email, id_jabatan, id_shift, no_tlp, alamat_karyawan,
-      shift:shift!akun_id_shift_fkey(nama_shift, jam_masuk, jam_pulang)
-    `, { count: "exact" })
-    .eq("id_perusahaan", id_perusahaan)
-    .neq("id_jabatan", "ADMIN")
-    .neq("id_jabatan", "SPRADM")
-    .order("created_at", { ascending: false })
-    .range(offset, offset + limit - 1);
+    // ✅ UPDATE: Tambahkan kolom boolean hari kerja di dalam select shift
+    const { data, error, count } = await supabase
+      .from("akun")
+      .select(`
+        id_akun, username, email, id_jabatan, id_shift, no_tlp, alamat_karyawan,
+        shift:shift!akun_id_shift_fkey (
+          nama_shift, 
+          jam_masuk, 
+          jam_pulang,
+          is_senin, is_selasa, is_rabu, is_kamis, is_jumat, is_sabtu, is_minggu
+        )
+      `, { count: "exact" })
+      .eq("id_perusahaan", id_perusahaan)
+      .neq("id_jabatan", "ADMIN")
+      .neq("id_jabatan", "SPRADM")
+      .neq("id_jabatan", "SUBADMIN") // Opsional: Sembunyikan Sub Admin jika mau
+      .order("created_at", { ascending: false })
+      .range(offset, offset + limit - 1);
 
-  if (error) return res.status(500).json({ message: error.message });
-  res.json({ data, total: count, page, limit });
+    if (error) throw error;
+    res.json({ data, total: count, page, limit });
+
+  } catch (err) {
+    console.error("Error get karyawan:", err);
+    res.status(500).json({ message: "Gagal memuat data karyawan" });
+  }
 });
 
 // POST Karyawan

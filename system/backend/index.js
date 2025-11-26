@@ -15,6 +15,7 @@ import superAdminRoutes from "./routes/superAdminRoutes.js";
 // 3. Import Routes Modular (User & Admin yang sudah kamu pecah sebelumnya)
 import userRoutes from "./userRoutes/index.js";
 import adminRoutes from "./adminRoutes/index.js";
+import "./userRoutes/cronJobAbsenUser.js" // <--- Tambahkan ini agar cron job aktif saat server start
 
 // 4. Import Routes Legacy (Registrasi/Verifikasi - Biarkan dulu di root)
 import registrasiRoute from "./registrasi.js";

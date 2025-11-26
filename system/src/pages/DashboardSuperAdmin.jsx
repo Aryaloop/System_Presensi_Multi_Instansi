@@ -4,7 +4,7 @@ import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import Swal from "sweetalert2";
-
+import Cookies from "js-cookie";
 /* ---------- UI Helpers (pure presentational) ---------- */
 const Badge = ({ children, tone = "gray" }) => {
   const map = {
@@ -175,16 +175,17 @@ export default function DashboardSuperAdmin() {
       showCancelButton: true,
       confirmButtonText: "Ya, logout",
       cancelButtonText: "Batal",
-    }).then(async (result) => { // Tambahkan async di sini
+    }).then(async (result) => {
       if (result.isConfirmed) {
         try {
-          // ✅ 1. Panggil API Logout untuk hapus Cookie di browser
-          await axios.post("/api/logout"); 
-          
-          // 2. Bersihkan localStorage (jika masih ada sisa data user)
-          localStorage.clear();
-          
-          // 3. Redirect
+          // 1. Panggil API Logout (Token Backend dihapus via response header)
+          await axios.post("/api/logout");
+
+          // ✅ 2. UPDATE: Hapus Cookie UI Frontend
+          Cookies.remove("username");
+          Cookies.remove("role");
+          Cookies.remove("id_jabatan");
+
           navigate("/login");
           Swal.fire({ icon: "success", title: "Logout berhasil!", timer: 1500, showConfirmButton: false });
         } catch (error) {
@@ -193,7 +194,7 @@ export default function DashboardSuperAdmin() {
       }
     });
   };
-  
+
   const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
 
   const handleAddPerusahaan = async (payload) => {

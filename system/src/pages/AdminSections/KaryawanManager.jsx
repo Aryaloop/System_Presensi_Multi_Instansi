@@ -1,4 +1,3 @@
-// src/pages/AdminSections/KaryawanManager.jsx
 import { useState, useEffect } from "react";
 import axios from "axios";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -10,12 +9,27 @@ export default function KaryawanManager() {
   const [showEditForm, setShowEditForm] = useState(false);
   const [selectedKaryawan, setSelectedKaryawan] = useState(null);
   
-  // 1. State untuk menyimpan daftar shift (agar dropdown tidak kosong)
+  // State untuk menyimpan daftar shift
   const [shiftList, setShiftList] = useState([]);
   const limit = 20;
 
+  // ============================================================
+  // 🛠️ HELPER: Format Hari Kerja (Boolean -> Teks)
+  // ============================================================
+  const renderHariKerja = (shift) => {
+    const days = [];
+    if (shift.is_senin) days.push("Sen");
+    if (shift.is_selasa) days.push("Sel");
+    if (shift.is_rabu) days.push("Rab");
+    if (shift.is_kamis) days.push("Kam");
+    if (shift.is_jumat) days.push("Jum");
+    if (shift.is_sabtu) days.push("Sab");
+    if (shift.is_minggu) days.push("Min");
+    return days.length > 0 ? days.join(", ") : "Tidak ada jadwal";
+  };
+
   // =============================
-  // 📡 Ambil Data Karyawan (Pakai React Query)
+  // 📡 Ambil Data Karyawan
   // =============================
   const { data: karyawanData = { data: [], total: 0 }, isLoading, isError } = useQuery({
     queryKey: ["karyawan", currentPage],
@@ -44,8 +58,6 @@ export default function KaryawanManager() {
   };
 
   useEffect(() => {
-    // ❌ DULU ERROR DISINI: fetchKaryawan(); (Fungsi ini tidak ada, makanya blank)
-    // ✅ GANTI DENGAN INI:
     fetchShiftList(); 
   }, []);
 
@@ -128,6 +140,7 @@ export default function KaryawanManager() {
                 <th className="p-2 border">Email</th>
                 <th className="p-2 border">Jabatan</th>
                 <th className="p-2 border">Shift</th>
+                <th className="p-2 border">Hari Kerja</th>
                 <th className="p-2 border">Aksi</th>
               </tr>
             </thead>
@@ -140,7 +153,13 @@ export default function KaryawanManager() {
                   <td className="border p-2">{k.username}</td>
                   <td className="border p-2">{k.email}</td>
                   <td className="border p-2">{k.id_jabatan}</td>
-                  <td className="border p-2">{k.shift?.nama_shift || "-"}</td>
+                  <td className="border p-2">
+                    {k.shift ? `${k.shift.nama_shift} (${k.shift.jam_masuk}-${k.shift.jam_pulang})` : "-"}
+                  </td>
+                  {/* Tampilkan hari kerja juga di tabel utama biar informatif */}
+                  <td className="border p-2 text-xs text-gray-600">
+                    {k.shift ? renderHariKerja(k.shift) : "-"}
+                  </td>
                   <td className="border p-2 space-x-2 text-center">
                     <button
                       onClick={() => handleEditKaryawan(k)}
@@ -229,23 +248,28 @@ export default function KaryawanManager() {
                 className="w-full border p-2 rounded"
               />
               
-              {/* ✅ PERBAIKAN DROPDOWN SHIFT */}
-              <label className="block text-sm font-medium text-gray-700">Pilih Shift</label>
-              <select
-                name="id_shift"
-                value={selectedKaryawan.id_shift || ""}
-                onChange={(e) =>
-                    setSelectedKaryawan({ ...selectedKaryawan, id_shift: e.target.value })
-                }   
-                className="border p-2 rounded w-full"
-              >
-                <option value="">-- Pilih Shift --</option>
-                {shiftList.map((shift) => (
-                  <option key={shift.id_shift} value={shift.id_shift}>
-                    {shift.nama_shift} ({shift.jam_masuk} - {shift.jam_pulang})
-                  </option>
-                ))}
-              </select>
+              {/* ✅ UPDATE DROPDOWN SHIFT */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Pilih Shift Kerja</label>
+                <select
+                    name="id_shift"
+                    value={selectedKaryawan.id_shift || ""}
+                    onChange={(e) =>
+                        setSelectedKaryawan({ ...selectedKaryawan, id_shift: e.target.value })
+                    }   
+                    className="border p-2 rounded w-full text-sm"
+                >
+                    <option value="">-- Pilih Shift --</option>
+                    {shiftList.map((shift) => (
+                    <option key={shift.id_shift} value={shift.id_shift}>
+                        {shift.nama_shift} ({shift.jam_masuk}-{shift.jam_pulang}) — {renderHariKerja(shift)}
+                    </option>
+                    ))}
+                </select>
+                <p className="text-xs text-gray-500 mt-1">
+                    *Format: Nama (Jam) — Hari Kerja
+                </p>
+              </div>
 
               <div className="flex justify-end gap-2 mt-4">
                 <button

@@ -3,7 +3,7 @@ import React, { useState, lazy, Suspense, useEffect } from "react";
 import "react-calendar/dist/Calendar.css";
 import { useQuery } from "@tanstack/react-query";
 import axios from "axios";
-
+import Cookies from "js-cookie";
 // 1. Impor SEMUA halaman
 const Dashboard = lazy(() => import("./UserSections/Dashboard"));
 const Absen = lazy(() => import("./UserSections/Absen"));
@@ -15,7 +15,7 @@ const Settings = lazy(() => import("./UserSections/Settings"));
 export default function DashboardUser() {
   const [page, setPage] = useState("dashboard");
   const [user, setUser] = useState({ nama: "Memuat...", jabatan: "..." });
-  
+
   // 🟢 STATE BARU: Untuk toggle sidebar di mobile
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
@@ -58,10 +58,10 @@ export default function DashboardUser() {
 
   return (
     <div className="min-h-screen bg-gray-100 flex relative overflow-hidden">
-      
+
       {/* 🟢 1. MOBILE OVERLAY (Background Gelap saat sidebar buka) */}
       {isSidebarOpen && (
-        <div 
+        <div
           className="fixed inset-0 bg-black/50 z-20 md:hidden transition-opacity"
           onClick={() => setIsSidebarOpen(false)}
         />
@@ -70,7 +70,7 @@ export default function DashboardUser() {
       {/* ========================================================== */}
       {/* BAGIAN SIDEBAR (RESPONSIVE) */}
       {/* ========================================================== */}
-      <aside 
+      <aside
         className={`fixed md:relative z-30 w-64 h-full bg-white border-r flex flex-col transition-transform duration-300 ease-in-out
           ${isSidebarOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"}
         `}
@@ -87,7 +87,7 @@ export default function DashboardUser() {
             </div>
           </div>
           {/* Tombol Close (Hanya di Mobile) */}
-          <button 
+          <button
             onClick={() => setIsSidebarOpen(false)}
             className="md:hidden text-gray-500 hover:bg-gray-100 p-1 rounded"
           >
@@ -129,18 +129,25 @@ export default function DashboardUser() {
         {/* Tombol Logout */}
         <div className="p-3 border-t bg-gray-50/50">
           <button
-            onClick={() => {
-              document.cookie = "token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
-              localStorage.clear();
+            onClick={async () => {
+              // UPDATE: Logout logic yang bersih
+              try {
+                await axios.post("/api/logout"); // Hit backend
+              } catch (e) {
+                console.log("Logout backend error (diabaikan)", e);
+              }
+
+              // Hapus Cookie UI
+              Cookies.remove("username");
+              Cookies.remove("role");
+              Cookies.remove("id_jabatan");
+
               window.location.href = "/login";
             }}
             className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-red-600 hover:bg-red-50 transition border border-transparent hover:border-red-100"
           >
             <span className="inline-block w-5 text-center">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7" />
-                <path strokeLinecap="round" strokeLinejoin="round" d="M3 21h8a2 2 0 002-2V5a2 2 0 00-2-2H3" />
-              </svg>
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7" /><path strokeLinecap="round" strokeLinejoin="round" d="M3 21h8a2 2 0 002-2V5a2 2 0 00-2-2H3" /></svg>
             </span>
             Logout
           </button>
@@ -152,10 +159,10 @@ export default function DashboardUser() {
         {/* Topbar */}
         <header className="bg-white border-b h-16 flex-none z-10">
           <div className="max-w-7xl mx-auto px-4 lg:px-6 h-full flex items-center justify-between">
-            
+
             {/* 🟢 2. TOMBOL HAMBURGER (Kiri - Hanya Mobile) */}
             <div className="flex items-center gap-3">
-              <button 
+              <button
                 onClick={() => setIsSidebarOpen(true)}
                 className="md:hidden p-2 -ml-2 text-gray-600 hover:bg-gray-100 rounded-lg"
               >
@@ -163,7 +170,7 @@ export default function DashboardUser() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16" />
                 </svg>
               </button>
-              
+
               <div>
                 <h1 className="text-lg font-semibold leading-tight">Dashboard</h1>
                 <p className="text-xs text-gray-500 hidden sm:block">

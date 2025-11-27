@@ -22,10 +22,15 @@ router.get("/api/admin/shift", async (req, res) => {
   }
 });
 
-// POST Shift
+// POST Shift (Create)
 router.post("/api/admin/shift", async (req, res) => {
   try {
-    const { nama_shift, jam_masuk, jam_pulang, hari_shift } = req.body;
+    // Ambil data boolean hari dari body
+    const { 
+      nama_shift, jam_masuk, jam_pulang, 
+      is_senin, is_selasa, is_rabu, is_kamis, is_jumat, is_sabtu, is_minggu 
+    } = req.body;
+    
     const id_perusahaan = req.user.id_perusahaan;
 
     const { data, error } = await supabase.from("shift").insert([
@@ -34,28 +39,38 @@ router.post("/api/admin/shift", async (req, res) => {
         nama_shift,
         jam_masuk,
         jam_pulang,
-        hari_shift,
         id_perusahaan,
+        // Masukkan status hari kerja
+        is_senin, is_selasa, is_rabu, is_kamis, is_jumat, is_sabtu, is_minggu
       },
     ]);
 
     if (error) throw error;
     res.json({ message: "✅ Shift berhasil ditambahkan", data });
   } catch (err) {
+    console.error(err);
     res.status(500).json({ message: "Gagal menambah shift" });
   }
 });
 
-// PUT Shift
+// PUT Shift (Update)
 router.put("/api/admin/shift/:id_shift", async (req, res) => {
   try {
     const { id_shift } = req.params;
-    const { nama_shift, jam_masuk, jam_pulang, hari_shift } = req.body;
+    const { 
+      nama_shift, jam_masuk, jam_pulang, 
+      is_senin, is_selasa, is_rabu, is_kamis, is_jumat, is_sabtu, is_minggu 
+    } = req.body;
+
     const { data, error } = await supabase
       .from("shift")
-      .update({ nama_shift, jam_masuk, jam_pulang, hari_shift })
+      .update({ 
+        nama_shift, jam_masuk, jam_pulang,
+        is_senin, is_selasa, is_rabu, is_kamis, is_jumat, is_sabtu, is_minggu
+      })
       .eq("id_shift", id_shift)
       .select().single();
+
     if (error) throw error;
     res.json({ message: "✅ Shift berhasil diperbarui", data });
   } catch (err) {

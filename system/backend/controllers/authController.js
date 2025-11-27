@@ -46,11 +46,16 @@ export class AuthController {
       });
 
       // 6. Response JSON
+      let roleString = "USER";
+      if (akun.id_jabatan === "SPRADM") roleString = "SUPERADMIN";
+      else if (akun.id_jabatan === "ADMIN") roleString = "ADMIN";
+      else if (akun.id_jabatan === "SUBADMIN") roleString = "ADMIN"; // <-- Arahkan Sub Admin dianggap role "ADMIN" di frontend biar bisa masuk DashboardAdmin
+
       res.json({
         message: "Login berhasil",
         username: akun.username,
-        id_jabatan: akun.id_jabatan,
-        role: akun.id_jabatan === "SPRADM" ? "SUPERADMIN" : akun.id_jabatan === "ADMIN" ? "ADMIN" : "USER",
+        id_jabatan: akun.id_jabatan, // Akan mengirim "SUBADMIN"
+        role: roleString, // Frontend menggunakan ini untuk navigasi (navigate('/admin-dashboard'))
       });
     } catch (err) {
       console.error("Login Error:", err);

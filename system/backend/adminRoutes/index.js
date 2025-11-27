@@ -6,7 +6,7 @@ import shiftRoutes from "./adminShift.js";
 import izinRoutes from "./adminIzin.js";
 import perusahaanRoutes from "./adminPerusahaan.js";
 import absenRoutes from "./adminAbsen.js";
-
+import createSubAdmin from "./createSubAdmin.js";
 // Import Middleware (sesuaikan path mundur satu folder)
 import { verifyToken, verifyAdmin } from "../authMiddleware.js";
 
@@ -25,5 +25,6 @@ router.use(shiftRoutes);
 router.use(izinRoutes);
 router.use(perusahaanRoutes);
 router.use(absenRoutes);
-
+// Contoh di route file
+router.use(createSubAdmin);
 export default router;

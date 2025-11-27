@@ -1,70 +1,63 @@
 import React, { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import axios from "axios";
-// import ReCAPTCHA from "react-google-recaptcha";
-import Swal from "sweetalert2"; // ✅ Import SweetAlert2
-
-// const SITE_KEY = import.meta.env.VITE_RECAPTCHA_SITE_KEY;
+import Swal from "sweetalert2";
+import Cookies from "js-cookie"; // ✅ Import js-cookie
 
 export default function Login() {
   const navigate = useNavigate();
   const [form, setForm] = useState({ email: "", password: "", captcha: "" });
-  const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [remember, setRemember] = useState(false);
 
   const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
-  // const handleCaptcha = (token) => setForm((prev) => ({ ...prev, captcha: token }));
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError("");
     setLoading(true);
 
     try {
       const res = await axios.post("/api/login", { ...form, remember });
       const { role, id_jabatan } = res.data || {};
 
-      // ✅ Simpan data login ke localStorage
-      localStorage.setItem("id_akun", res.data.id_akun);
-      localStorage.setItem("username", res.data.username);
-      localStorage.setItem("role", res.data.role);
-      localStorage.setItem("id_jabatan", res.data.id_jabatan);
-      localStorage.setItem("id_perusahaan", res.data.id_perusahaan); // 🟢 penting
+      // ✅ UPDATE: Simpan ke Cookie (bukan LocalStorage)
+      // Expired 1 hari (sesuaikan kebutuhan)
+      Cookies.set("username", res.data.username, { expires: 1 });
+      Cookies.set("role", role, { expires: 1 });
+
+      if (id_jabatan) {
+        Cookies.set("id_jabatan", id_jabatan, { expires: 1 });
+      } else {
+        Cookies.remove("id_jabatan");
+      }
 
       await Swal.fire({
         icon: "success",
         title: "Login Berhasil!",
-        text: "Selamat datang di sistem PresensiKu.",
+        text: `Selamat datang, ${res.data.username}`,
         showConfirmButton: false,
         timer: 1500,
       });
 
-      console.log("DEBUG ROLE:", role, id_jabatan); // Cek di console browser
+      // Logic Redirect
+      const userRole = id_jabatan || role;
+      const rolePaths = {
+        SPRADM: "/dashboard_super_admin",
+        SUPERADMIN: "/dashboard_super_admin",
+        ADMIN: "/dashboard_admin",
+        SUBADMIN: "/dashboard_admin",
+        USER: "/dashboard_user"
+      };
 
-      // 🔀 Arahkan sesuai role
-      if (id_jabatan === "SPRADM" || role === "SUPERADMIN") {
-        navigate("/dashboard_super_admin");
-      }
-      // Cek kedua variasi (id_jabatan ATAU role) untuk Admin
-      else if (id_jabatan === "ADMIN" || role === "ADMIN") {
-        navigate("/dashboard_admin");
-      }
-      else {
-        navigate("/dashboard_user");
-      }
-    }
-    catch (err) {
-      console.error("Error dari server:", err.response?.data);
-      const msg = err.response?.data?.message || "Login gagal atau backend belum berjalan";
-      setError(msg);
+      const targetPath = rolePaths[userRole] || "/dashboard_user";
+      navigate(targetPath);
 
-      // ❌ Tampilkan notifikasi error
+    } catch (err) {
+      console.error(err);
       Swal.fire({
         icon: "error",
-        title: "Login Gagal!",
-        text: msg,
-        confirmButtonColor: "#4f46e5",
+        title: "Gagal Masuk",
+        text: err.response?.data?.message || "Terjadi kesalahan server",
       });
     } finally {
       setLoading(false);
@@ -74,7 +67,8 @@ export default function Login() {
   return (
     <div className="min-h-screen w-full bg-gradient-to-br from-blue-500 via-indigo-600 to-indigo-700 flex items-stretch justify-center">
       <div className="w-full max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-0 lg:gap-10 p-4 lg:p-6">
-        {/* LEFT: Card */}
+        
+        {/* LEFT: Card Login */}
         <div className="flex items-center justify-center order-2 lg:order-1">
           <div className="bg-white/95 backdrop-blur shadow-xl rounded-2xl w-full max-w-md p-6 sm:p-8">
             <div className="w-12 h-12 rounded-xl bg-indigo-100 text-indigo-600 flex items-center justify-center mx-auto">
@@ -92,11 +86,14 @@ export default function Login() {
             </div>
 
             <form onSubmit={handleSubmit} className="mt-5 space-y-4">
+              {/* Input Email */}
               <div>
                 <label htmlFor="email" className="block text-sm font-medium text-gray-700">Email</label>
                 <div className="relative mt-1">
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5"><path d="M1.5 6.75A2.25 2.25 0 0 1 3.75 4.5h16.5a2.25 2.25 0 0 1 2.25 2.25v10.5A2.25 2.25 0 0 1 20.25 19.5H3.75A2.25 2.25 0 0 1 1.5 17.25V6.75Zm2.04-.75 8.21 6.157a.75.75 0 0 0 .9 0L20.86 6H3.54Z" /></svg>
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
+                        <path d="M1.5 6.75A2.25 2.25 0 0 1 3.75 4.5h16.5a2.25 2.25 0 0 1 2.25 2.25v10.5A2.25 2.25 0 0 1 20.25 19.5H3.75A2.25 2.25 0 0 1 1.5 17.25V6.75Zm2.04-.75 8.21 6.157a.75.75 0 0 0 .9 0L20.86 6H3.54Z" />
+                    </svg>
                   </span>
                   <input
                     id="email"
@@ -111,11 +108,14 @@ export default function Login() {
                 </div>
               </div>
 
+              {/* Input Password */}
               <div>
                 <label htmlFor="password" className="block text-sm font-medium text-gray-700">Password</label>
                 <div className="relative mt-1">
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5"><path d="M12 1.5a5.25 5.25 0 0 0-5.25 5.25V9H6a2.25 2.25 0 0 0-2.25 2.25v7.5A2.25 2.25 0 0 0 6 21h12a2.25 2.25 0 0 0 2.25-2.25v-7.5A2.25 2.25 0 0 0 18 9h-.75V6.75A5.25 5.25 0 0 0 12 1.5Zm-3.75 7.5V6.75a3.75 3.75 0 0 1 7.5 0V9H8.25Z" /></svg>
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
+                        <path d="M12 1.5a5.25 5.25 0 0 0-5.25 5.25V9H6a2.25 2.25 0 0 0-2.25 2.25v7.5A2.25 2.25 0 0 0 6 21h12a2.25 2.25 0 0 0 2.25-2.25v-7.5A2.25 2.25 0 0 0 18 9h-.75V6.75A5.25 5.25 0 0 0 12 1.5Zm-3.75 7.5V6.75a3.75 3.75 0 0 1 7.5 0V9H8.25Z" />
+                    </svg>
                   </span>
                   <input
                     id="password"
@@ -130,14 +130,22 @@ export default function Login() {
                 </div>
               </div>
 
+              {/* Remember Me & Forgot Password */}
               <div className="flex items-center justify-between text-sm">
                 <label className="inline-flex items-center gap-2 select-none">
-                  <input type="checkbox" className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" checked={remember} onChange={(e) => setRemember(e.target.checked)} />
+                  <input 
+                    type="checkbox" 
+                    className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" 
+                    checked={remember} 
+                    onChange={(e) => setRemember(e.target.checked)} 
+                  />
                   <span className="text-gray-600">Ingat saya</span>
                 </label>
+                {/* TOMBOL FORGOT PASSWORD ADA DI SINI */}
                 <Link to="/forgot-password" className="text-indigo-600 hover:underline">Lupa password?</Link>
               </div>
 
+              {/* Submit Button */}
               <button
                 type="submit"
                 disabled={loading}
@@ -145,15 +153,12 @@ export default function Login() {
               >
                 {loading ? "Memproses..." : "Masuk"}
               </button>
-
-              {/* <div className="pt-1">
-                <ReCAPTCHA sitekey={SITE_KEY} onChange={handleCaptcha} />
-              </div> */}
             </form>
 
+            {/* TOMBOL REGISTER ADA DI SINI */}
             <p className="text-center text-sm text-gray-600 mt-6">
               Belum punya akun?{" "}
-              <a href="/register" className="text-indigo-600 hover:underline font-medium">Daftar sekarang</a>
+              <Link to="/register" className="text-indigo-600 hover:underline font-medium">Daftar sekarang</Link>
             </p>
           </div>
         </div>
@@ -164,7 +169,9 @@ export default function Login() {
           <div className="relative h-full w-full flex items-center justify-center px-8 py-12">
             <div className="max-w-md text-white">
               <div className="w-12 h-12 rounded-2xl bg-indigo-500/30 border border-white/20 flex items-center justify-center">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" className="w-6 h-6"><path strokeWidth="1.8" d="M7 3v2m10-2v2M5 7h14a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2Zm0 4h14" /></svg>
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" className="w-6 h-6">
+                    <path strokeWidth="1.8" d="M7 3v2m10-2v2M5 7h14a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2Zm0 4h14" />
+                </svg>
               </div>
 
               <h2 className="mt-6 text-2xl sm:text-3xl font-extrabold leading-tight">Kelola Presensi dengan
@@ -182,7 +189,9 @@ export default function Login() {
                 ].map((t, i) => (
                   <li key={i} className="flex items-start gap-3">
                     <span className="mt-0.5 inline-flex items-center justify-center w-5 h-5 rounded-full bg-white/15 border border-white/20">
-                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-3.5 h-3.5"><path d="M9.53 16.28 4.75 11.5l1.5-1.5 3.28 3.28 7.22-7.22 1.5 1.5-8.72 8.72Z" /></svg>
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-3.5 h-3.5">
+                        <path d="M9.53 16.28 4.75 11.5l1.5-1.5 3.28 3.28 7.22-7.22 1.5 1.5-8.72 8.72Z" />
+                      </svg>
                     </span>
                     <span className="text-white/90">{t}</span>
                   </li>
@@ -191,6 +200,7 @@ export default function Login() {
             </div>
           </div>
         </div>
+        
       </div>
     </div>
   );

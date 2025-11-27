@@ -1,8 +1,8 @@
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom"; // 1. Tambah useSearchParams
 import React, { useState, useEffect, lazy, Suspense } from "react";
-import Cookies from "js-cookie"; // ✅ Import js-cookie
+import Cookies from "js-cookie";
 
-// ... (Import Lazy Components tetap sama)
+// ... (Import Lazy Components TETAP SAMA)
 const DashboardHome = lazy(() => import("./AdminSections/DashboardHome"));
 const KaryawanManager = lazy(() => import("./AdminSections/KaryawanManager"));
 const AbsenKaryawan = lazy(() => import("./AdminSections/AbsenKaryawan"));
@@ -14,23 +14,65 @@ const CreateSubAdmin = lazy(() => import("./AdminSections/CreateSubAdmin"));
 
 export default function DashboardAdmin() {
   const navigate = useNavigate();
-  const [page, setPage] = useState("dashboard");
+  const [searchParams, setSearchParams] = useSearchParams(); // 2. Init URL Params
+  
+  // 3. Ambil page dari URL kalau ada, kalau tidak default ke "dashboard"
+  const initialPage = searchParams.get("tab") || "dashboard";
+  const [page, setPage] = useState(initialPage);
+  
   const [userRole, setUserRole] = useState(""); 
 
+  // List Menu (Saya pindahkan ke atas agar bisa dibaca useEffect)
+  const menuItems = [
+    { key: "dashboard", label: "🏠 Dashboard", title: "Dashboard" },
+    { key: "karyawan", label: "👥 Karyawan", title: "Kelola Karyawan" },
+    { key: "absen_karyawan", label: "📅 Absen", title: "Data Absensi" },
+    { key: "jadwal", label: "🕒 Shift", title: "Jadwal Shift" },
+    { key: "izin", label: "📝 Izin", title: "Verifikasi Izin" },
+    { key: "rekap", label: "🏅 Rekap", title: "Rekapitulasi" },
+    { key: "perusahaan", label: "🏢 Perusahaan", title: "Profil Perusahaan" },
+  ];
+
+  // Logic Auth & Role
   useEffect(() => {
-    // ✅ UPDATE: Ambil data dari Cookie
     const role = Cookies.get("role");          
     const jabatan = Cookies.get("id_jabatan"); 
 
     setUserRole(jabatan); 
 
-    // Pengecekan keamanan level UI
     if (jabatan !== "ADMIN" && jabatan !== "SUBADMIN") {
       navigate("/login");
     }
+    
+    // Tambahkan menu subadmin jika role sesuai
+    if (jabatan === "ADMIN" && !menuItems.find(m => m.key === "create_subadmin")) {
+        // Logika render menu ada di bawah, ini hanya untuk memastikan role
+    }
   }, [navigate]);
 
-  // ... (Sisa fungsi renderPage dan return JSX TETAP SAMA PERSIS)
+  // ============================================================
+  // 🔥 FITUR BARU: Ubah Title Tab & URL Browser
+  // ============================================================
+  useEffect(() => {
+    // 1. Cari item menu yang sedang aktif
+    let currentItem = menuItems.find((item) => item.key === page);
+    
+    // Handle khusus menu Sub Admin yang dinamis
+    if (!currentItem && page === "create_subadmin") {
+        currentItem = { title: "Tambah Sub Admin" };
+    }
+
+    const titleText = currentItem ? currentItem.title : "Dashboard";
+
+    // 2. Ubah Nama Tab Browser
+    document.title = `Admin - ${titleText}`;
+
+    // 3. Ubah URL tanpa reload (menjadi ...?tab=karyawan)
+    setSearchParams({ tab: page });
+
+  }, [page, setSearchParams]); // Jalankan setiap kali 'page' berubah
+
+
   const renderPage = () => {
     switch (page) {
       case "dashboard": return <DashboardHome />;
@@ -45,18 +87,10 @@ export default function DashboardAdmin() {
     }
   };
 
-  const menuItems = [
-    { key: "dashboard", label: "🏠 Dashboard" },
-    { key: "karyawan", label: "👥 Karyawan" },
-    { key: "absen_karyawan", label: "📅 Absen" },
-    { key: "jadwal", label: "🕒 Shift" },
-    { key: "izin", label: "📝 Izin" },
-    { key: "rekap", label: "🏅 Rekap" },
-    { key: "perusahaan", label: "🏢 Perusahaan" },
-  ];
-
+  // Logic Menu Dinamis (agar 'const menuItems' di atas tetap bersih)
+  const displayMenu = [...menuItems];
   if (userRole === "ADMIN") {
-    menuItems.push({ key: "create_subadmin", label: "➕ Sub Admin" });
+    displayMenu.push({ key: "create_subadmin", label: "➕ Sub Admin", title: "Sub Admin" });
   }
 
   return (
@@ -71,8 +105,14 @@ export default function DashboardAdmin() {
       </header>
 
       <nav className="bg-white shadow p-4 flex flex-wrap gap-3 justify-center">
-        {menuItems.map((item) => (
-          <button key={item.key} onClick={() => setPage(item.key)} className={`px-4 py-2 rounded-lg font-semibold transition ${page === item.key ? "bg-indigo-600 text-white" : "bg-gray-100 hover:bg-indigo-100 text-gray-700"}`}>
+        {displayMenu.map((item) => (
+          <button
+            key={item.key}
+            onClick={() => setPage(item.key)}
+            className={`px-4 py-2 rounded-lg font-semibold transition ${
+              page === item.key ? "bg-indigo-600 text-white" : "bg-gray-100 hover:bg-indigo-100 text-gray-700"
+            }`}
+          >
             {item.label}
           </button>
         ))}

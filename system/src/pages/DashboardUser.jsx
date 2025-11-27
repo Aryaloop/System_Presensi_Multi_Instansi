@@ -2,9 +2,11 @@
 import React, { useState, lazy, Suspense, useEffect } from "react";
 import "react-calendar/dist/Calendar.css";
 import { useQuery } from "@tanstack/react-query";
+import { useSearchParams } from "react-router-dom"; // 1. Import ini
 import axios from "axios";
 import Cookies from "js-cookie";
-// 1. Impor SEMUA halaman
+
+// Import Halaman
 const Dashboard = lazy(() => import("./UserSections/Dashboard"));
 const Absen = lazy(() => import("./UserSections/Absen"));
 const Izin = lazy(() => import("./UserSections/Izin"));
@@ -13,13 +15,27 @@ const DataPresensi = lazy(() => import("./UserSections/DataPresensi"));
 const Settings = lazy(() => import("./UserSections/Settings"));
 
 export default function DashboardUser() {
-  const [page, setPage] = useState("dashboard");
-  const [user, setUser] = useState({ nama: "Memuat...", jabatan: "..." });
+  // 2. Init URL Params
+  const [searchParams, setSearchParams] = useSearchParams();
+  
+  // 3. Ambil page dari URL, default ke "dashboard"
+  const initialPage = searchParams.get("tab") || "dashboard";
+  const [page, setPage] = useState(initialPage);
 
-  // 🟢 STATE BARU: Untuk toggle sidebar di mobile
+  const [user, setUser] = useState({ nama: "Memuat...", jabatan: "..." });
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
-  // Logic fetching untuk Topbar
+  // Definisi Menu (Lengkap dengan Title untuk Tab Browser & Icon)
+  const menuItems = [
+    { key: "dashboard", label: "Dashboard", title: "Dashboard", icon: "🏠" },
+    { key: "absen", label: "Absen GPS", title: "Absen Masuk/Pulang", icon: "📍" },
+    { key: "izin", label: "Ajukan Izin", title: "Form Izin", icon: "📝" },
+    { key: "kalender", label: "Kalender", title: "Kalender Kehadiran", icon: "🗓️" },
+    { key: "data", label: "Data Presensi", title: "Riwayat Presensi", icon: "📊" },
+    { key: "pengaturan", label: "Pengaturan", title: "Pengaturan Akun", icon: "⚙️" },
+  ];
+
+  // Logic fetching Profile
   const { data: userData } = useQuery({
     queryKey: ["userProfile"],
     queryFn: async () => {
@@ -38,10 +54,26 @@ export default function DashboardUser() {
     }
   }, [userData]);
 
-  // Fungsi navigasi (tutup sidebar otomatis jika di mobile)
+  // ============================================================
+  // 🔥 FITUR BARU: Ubah Title Tab & URL Browser
+  // ============================================================
+  useEffect(() => {
+    // 1. Cari item menu aktif
+    const currentItem = menuItems.find((item) => item.key === page);
+    const titleText = currentItem ? currentItem.title : "Dashboard";
+
+    // 2. Ubah Nama Tab Browser
+    document.title = `User - ${titleText}`;
+
+    // 3. Ubah URL tanpa reload
+    setSearchParams({ tab: page });
+
+  }, [page, setSearchParams]);
+
+  // Fungsi navigasi
   const handleNavigation = (key) => {
     setPage(key);
-    setIsSidebarOpen(false); // Tutup sidebar setelah klik menu (UX mobile)
+    setIsSidebarOpen(false);
   };
 
   const renderPage = () => {
@@ -59,7 +91,7 @@ export default function DashboardUser() {
   return (
     <div className="min-h-screen bg-gray-100 flex relative overflow-hidden">
 
-      {/* 🟢 1. MOBILE OVERLAY (Background Gelap saat sidebar buka) */}
+      {/* MOBILE OVERLAY */}
       {isSidebarOpen && (
         <div
           className="fixed inset-0 bg-black/50 z-20 md:hidden transition-opacity"
@@ -67,9 +99,7 @@ export default function DashboardUser() {
         />
       )}
 
-      {/* ========================================================== */}
-      {/* BAGIAN SIDEBAR (RESPONSIVE) */}
-      {/* ========================================================== */}
+      {/* SIDEBAR */}
       <aside
         className={`fixed md:relative z-30 w-64 h-full bg-white border-r flex flex-col transition-transform duration-300 ease-in-out
           ${isSidebarOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"}
@@ -83,10 +113,9 @@ export default function DashboardUser() {
             </div>
             <div>
               <p className="text-sm font-semibold">PresensiKu</p>
-              <p className="text-xs text-gray-500 -mt-1">Dashboard</p>
+              <p className="text-xs text-gray-500 -mt-1">Dashboard User</p>
             </div>
           </div>
-          {/* Tombol Close (Hanya di Mobile) */}
           <button
             onClick={() => setIsSidebarOpen(false)}
             className="md:hidden text-gray-500 hover:bg-gray-100 p-1 rounded"
@@ -95,16 +124,9 @@ export default function DashboardUser() {
           </button>
         </div>
 
-        {/* Menu Navigasi */}
+        {/* Menu Navigasi (Looping dari array menuItems agar lebih rapi) */}
         <nav className="p-3 space-y-1 flex-1 overflow-y-auto">
-          {[
-            { key: "dashboard", label: "Dashboard" },
-            { key: "absen", label: "Absen GPS" },
-            { key: "izin", label: "Ajukan Izin" },
-            { key: "kalender", label: "Kalender" },
-            { key: "data", label: "Data Presensi" },
-            { key: "pengaturan", label: "Pengaturan" },
-          ].map((item) => (
+          {menuItems.map((item) => (
             <button
               key={item.key}
               onClick={() => handleNavigation(item.key)}
@@ -114,12 +136,7 @@ export default function DashboardUser() {
                 }`}
             >
               <span className="inline-block w-5 text-center">
-                {item.key === "dashboard" && "🏠"}
-                {item.key === "absen" && "📍"}
-                {item.key === "izin" && "📝"}
-                {item.key === "kalender" && "🗓️"}
-                {item.key === "data" && "📊"}
-                {item.key === "pengaturan" && "⚙️"}
+                {item.icon}
               </span>
               {item.label}
             </button>
@@ -130,18 +147,14 @@ export default function DashboardUser() {
         <div className="p-3 border-t bg-gray-50/50">
           <button
             onClick={async () => {
-              // UPDATE: Logout logic yang bersih
               try {
-                await axios.post("/api/logout"); // Hit backend
+                await axios.post("/api/logout");
               } catch (e) {
                 console.log("Logout backend error (diabaikan)", e);
               }
-
-              // Hapus Cookie UI
               Cookies.remove("username");
               Cookies.remove("role");
               Cookies.remove("id_jabatan");
-
               window.location.href = "/login";
             }}
             className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-red-600 hover:bg-red-50 transition border border-transparent hover:border-red-100"
@@ -154,13 +167,12 @@ export default function DashboardUser() {
         </div>
       </aside>
 
-      {/* =============================== CONTENT =============================== */}
+      {/* CONTENT AREA */}
       <div className="flex-1 flex flex-col h-screen overflow-hidden">
         {/* Topbar */}
         <header className="bg-white border-b h-16 flex-none z-10">
           <div className="max-w-7xl mx-auto px-4 lg:px-6 h-full flex items-center justify-between">
-
-            {/* 🟢 2. TOMBOL HAMBURGER (Kiri - Hanya Mobile) */}
+            {/* Hamburger Mobile */}
             <div className="flex items-center gap-3">
               <button
                 onClick={() => setIsSidebarOpen(true)}
@@ -170,16 +182,18 @@ export default function DashboardUser() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16" />
                 </svg>
               </button>
-
               <div>
-                <h1 className="text-lg font-semibold leading-tight">Dashboard</h1>
+                <h1 className="text-lg font-semibold leading-tight">
+                    {/* Tampilkan judul halaman aktif di Topbar */}
+                    {menuItems.find(m => m.key === page)?.label || "Dashboard"}
+                </h1>
                 <p className="text-xs text-gray-500 hidden sm:block">
-                  Kelola kehadiran & aktivitas
+                  Selamat bekerja, {user.nama.split(" ")[0]}!
                 </p>
               </div>
             </div>
 
-            {/* Profil User (Kanan) */}
+            {/* Profil Kanan */}
             <div className="text-right">
               <div className="text-sm font-medium truncate max-w-[120px] sm:max-w-none">
                 {user.nama}
@@ -191,7 +205,7 @@ export default function DashboardUser() {
           </div>
         </header>
 
-        {/* Main Content + Scroll Area */}
+        {/* Main Scrollable Content */}
         <main className="flex-1 overflow-y-auto bg-gray-100 p-4 lg:p-6">
           <div className="max-w-7xl mx-auto">
             <Suspense fallback={<div className="flex justify-center py-10 text-gray-500">⏳ Memuat halaman...</div>}>

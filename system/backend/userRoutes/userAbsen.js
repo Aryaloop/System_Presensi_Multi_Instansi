@@ -113,7 +113,7 @@ router.post("/api/user/absen", async (req, res) => {
       }
 
       let status = "HADIR";
-      let keterangan = "";
+  
 
       // Cek Keterlambatan (Toleransi 30 Menit dari jam shift)
       if (akun.shift && akun.shift.jam_masuk) {
@@ -129,7 +129,6 @@ router.post("/api/user/absen", async (req, res) => {
 
         if (now > jamToleransi) {
           status = "TERLAMBAT";
-          keterangan = `Telat lebih dari 30 menit. (Jadwal: ${akun.shift.jam_masuk})`;
         }
       }
 
@@ -140,8 +139,7 @@ router.post("/api/user/absen", async (req, res) => {
           jam_masuk: new Date(),
           status: status,
           latitude_absen: latitude,
-          longitude_absen: longitude,
-          keterangan: keterangan || null
+          longitude_absen: longitude
         })
         .eq("id_kehadiran", absenHarian.id_kehadiran);
 

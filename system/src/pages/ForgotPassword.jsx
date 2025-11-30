@@ -1,13 +1,17 @@
-// src/pages/ForgotPassword.jsx
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react"; // 1. Tambah useEffect
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
-import Swal from "sweetalert2"; // ✅ SweetAlert2
+import Swal from "sweetalert2";
 
 export default function ForgotPassword() {
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+
+  // 2. Ubah Judul Tab
+  useEffect(() => {
+    document.title = "Lupa Password - PresensiKu";
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -36,7 +40,6 @@ export default function ForgotPassword() {
         timer: 2000,
       });
 
-      // Opsional: arahkan kembali ke login setelah sukses
       navigate("/login");
     } catch (err) {
       const msg =

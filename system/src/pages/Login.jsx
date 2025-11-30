@@ -1,14 +1,19 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react"; // 1. Tambah useEffect
 import { useNavigate, Link } from "react-router-dom";
 import axios from "axios";
 import Swal from "sweetalert2";
-import Cookies from "js-cookie"; // ✅ Import js-cookie
+import Cookies from "js-cookie";
 
 export default function Login() {
   const navigate = useNavigate();
   const [form, setForm] = useState({ email: "", password: "", captcha: "" });
   const [loading, setLoading] = useState(false);
   const [remember, setRemember] = useState(false);
+
+  // 2. Ubah Judul Tab
+  useEffect(() => {
+    document.title = "Masuk - PresensiKu";
+  }, []);
 
   const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
 
@@ -20,8 +25,6 @@ export default function Login() {
       const res = await axios.post("/api/login", { ...form, remember });
       const { role, id_jabatan } = res.data || {};
 
-      // ✅ UPDATE: Simpan ke Cookie (bukan LocalStorage)
-      // Expired 1 hari (sesuaikan kebutuhan)
       Cookies.set("username", res.data.username, { expires: 1 });
       Cookies.set("role", role, { expires: 1 });
 
@@ -39,7 +42,6 @@ export default function Login() {
         timer: 1500,
       });
 
-      // Logic Redirect
       const userRole = id_jabatan || role;
       const rolePaths = {
         SPRADM: "/dashboard_super_admin",
@@ -130,7 +132,6 @@ export default function Login() {
                 </div>
               </div>
 
-              {/* Remember Me & Forgot Password */}
               <div className="flex items-center justify-between text-sm">
                 <label className="inline-flex items-center gap-2 select-none">
                   <input 
@@ -141,11 +142,9 @@ export default function Login() {
                   />
                   <span className="text-gray-600">Ingat saya</span>
                 </label>
-                {/* TOMBOL FORGOT PASSWORD ADA DI SINI */}
                 <Link to="/forgot-password" className="text-indigo-600 hover:underline">Lupa password?</Link>
               </div>
 
-              {/* Submit Button */}
               <button
                 type="submit"
                 disabled={loading}
@@ -155,7 +154,6 @@ export default function Login() {
               </button>
             </form>
 
-            {/* TOMBOL REGISTER ADA DI SINI */}
             <p className="text-center text-sm text-gray-600 mt-6">
               Belum punya akun?{" "}
               <Link to="/register" className="text-indigo-600 hover:underline font-medium">Daftar sekarang</Link>

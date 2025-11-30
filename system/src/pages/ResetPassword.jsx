@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react"; // 1. Tambah useEffect
 import { useParams, useNavigate } from "react-router-dom";
 import axios from "axios";
 import Swal from "sweetalert2";
@@ -9,10 +9,14 @@ export default function ResetPassword() {
   const [confirm, setConfirm] = useState("");
   const navigate = useNavigate();
 
+  // 2. Ubah Judul Tab
+  useEffect(() => {
+    document.title = "Reset Password - PresensiKu";
+  }, []);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    // ✅ Cek minimal panjang password
     if (password.length < 8) {
       Swal.fire({
         icon: "warning",
@@ -23,7 +27,6 @@ export default function ResetPassword() {
       return;
     }
 
-    // ✅ Cek konfirmasi password
     if (password !== confirm) {
       Swal.fire({
         icon: "error",

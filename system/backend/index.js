@@ -12,12 +12,16 @@ import { db } from "./config/db.js";
 import authRoutes from "./routes/authRoutes.js";
 import superAdminRoutes from "./routes/superAdminRoutes.js";
 
-// 3. Import Routes Modular (User & Admin yang sudah kamu pecah sebelumnya)
+// 3. Import Routes Modular
 import userRoutes from "./userRoutes/index.js";
 import adminRoutes from "./adminRoutes/index.js";
-import "./userRoutes/cronJobAbsenUser.js" // <--- Tambahkan ini agar cron job aktif saat server start
 
-// 4. Import Routes Legacy (Registrasi/Verifikasi - Biarkan dulu di root)
+// --- PERUBAHAN DISINI ---
+// Import fungsi initDailyAttendance secara spesifik
+// Pastikan path "./userRoutes/cronJobAbsenUser.js" sudah benar sesuai struktur foldermu
+import { initDailyAttendance } from "./userRoutes/cronJobAbsenUser.js"; 
+
+// 4. Import Routes Legacy
 import registrasiRoute from "./registrasi.js";
 import verifyRoute from "./verifikasi.js";
 import resendVerifyRoute from "./resend-verification.js";
@@ -30,34 +34,22 @@ const PORT = process.env.PORT || 3001;
 // MIDDLEWARE GLOBAL
 // ======================================================
 app.use(cors({
-  origin: 'http://localhost:3000', // Sesuaikan dengan Frontend
-  credentials: true                // Izinkan Cookie
+  origin: 'http://localhost:3000', 
+  credentials: true                
 }));
 app.use(cookieParser());
 app.use(express.json());
 
 // ======================================================
-// MOUNTING ROUTE (Pemasangan Jalur)
+// MOUNTING ROUTE 
 // ======================================================
-
-// 1. Auth & Core (Login, Logout, Health, Forgot Pass)
 app.use("/api", authRoutes);
-
-// 2. Registrasi & Verifikasi
 app.use("/api/register", registrasiRoute);
 app.use("/api/verify", verifyRoute);
 app.use("/api/resend-verification", resendVerifyRoute);
 app.use("/api/check-verification", checkVerifyRoute);
-
-// 3. Super Admin Routes
 app.use("/api/superadmin", superAdminRoutes);
-
-// 4. User Routes (Modular)
-// Prefix "/" karena di dalam filenya sudah ada "/api/user/..."
 app.use("/", userRoutes);
-
-// 5. Admin Routes (Modular)
-// Prefix "/" karena di dalam filenya sudah ada "/api/admin/..."
 app.use("/", adminRoutes);
 
 // ======================================================
@@ -67,9 +59,17 @@ app.use("/", adminRoutes);
   try {
     const { count } = await db.countAkun();
     console.log(`✅ Supabase terkoneksi. Jumlah akun terdaftar: ${count}`);
-    app.listen(PORT, () => {
+    
+    app.listen(PORT, async () => {
       console.log(`✅ Backend berjalan di http://localhost:${PORT}`);
+      
+      // --- TAMBAHAN LOGIKA DEMO ---
+      // Jalankan pengecekan absen setiap kali server start/restart.
+      // Aman dilakukan berkali-kali karena di dalamnya sudah ada validasi cek duplikat.
+      console.log("🔄 [STARTUP] Menjalankan sinkronisasi data absen harian...");
+      await initDailyAttendance();
     });
+    
   } catch (error) {
     console.error("❌ Gagal konek ke Supabase / Start Server", error);
   }

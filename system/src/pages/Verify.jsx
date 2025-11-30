@@ -8,9 +8,12 @@ export default function Verify() {
   const [status, setStatus] = useState("🔄 Memverifikasi akun...");
 
   useEffect(() => {
+    // 1. Ubah Judul Tab
+    document.title = "Verifikasi Akun - PresensiKu";
+
     const verifyAccount = async () => {
       setStatus("🔄 Memverifikasi akun...");
-      await new Promise((r) => setTimeout(r, 500)); // jeda 0.5 detik
+      await new Promise((r) => setTimeout(r, 500));
       try {
         const res = await axios.get(`/api/verify/${token}`);
         if (res.data.success) {

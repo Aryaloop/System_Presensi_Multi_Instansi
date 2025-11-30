@@ -1,8 +1,7 @@
-// src/pages/Register.jsx
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react"; // 1. Tambah useEffect
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
-import Swal from "sweetalert2"; // ✅ Tambahkan SweetAlert2
+import Swal from "sweetalert2";
 
 export default function Register() {
   const navigate = useNavigate();
@@ -16,6 +15,11 @@ export default function Register() {
   });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+
+  // 2. Ubah Judul Tab
+  useEffect(() => {
+    document.title = "Daftar Akun - PresensiKu";
+  }, []);
 
   const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
 
@@ -48,7 +52,6 @@ export default function Register() {
       const { confirmPassword, ...submitData } = form;
       const res = await axios.post("/api/register", submitData);
 
-      // ✅ Notifikasi sukses
       await Swal.fire({
         icon: "success",
         title: "Registrasi Berhasil!",
@@ -62,7 +65,6 @@ export default function Register() {
       console.error("❌ Error registrasi:", err.response?.data);
       const msg = err.response?.data?.message || "Registrasi gagal, backend belum berjalan";
 
-      // ❌ Notifikasi gagal
       Swal.fire({
         icon: "error",
         title: "Registrasi Gagal!",

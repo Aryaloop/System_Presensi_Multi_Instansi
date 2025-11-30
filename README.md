@@ -88,6 +88,18 @@ root-project/
   - **Suspend:** Menonaktifkan akses perusahaan tertentu.
   - **Monitoring Global:** Melihat total user di seluruh platform.
 
+### 🤖 4. Sistem Otomatisasi (Cron Job)
+
+Sistem menjalankan tugas latar belakang otomatis untuk menjaga integritas data absensi:
+
+1.  **Inisialisasi Harian (00:05 WIB):**
+    - Mengecek jadwal shift setiap karyawan.
+    - Jika hari ini adalah **Hari Kerja**, sistem otomatis membuat status **"ALFA"**.
+    - Jika hari libur, sistem tidak membuat data (User tidak bisa absen).
+2.  **Finalisasi Akhir Hari (23:55 WIB):**
+    - Mengecek kelengkapan absen.
+    - Jika karyawan sudah Absen Masuk tapi **Lupa Absen Pulang**, status otomatis diubah menjadi **"ALFA"** (Sesuai kepatuhan audit).
+
 -----
 
 ## ⚙️ Persiapan & Instalasi
@@ -134,7 +146,7 @@ Buat file bernama `.env` di **folder paling luar (Root)** proyek ini. Copy konfi
 # Dapatkan ini dari Dashboard Supabase -> Project Settings -> API
 SUPABASE_URL=[https://your-project.supabase.co](https://your-project.supabase.co)
 SUPABASE_KEY=your-supabase-anon-key
-
+SUPABASE_SERVICE_KEY=cara_mendapatkanya Dashboard Supabase > Settings (⚙️) > API > Project API keys > service_role (Reveal & Copy)
 # --- SECURITY (JWT) ---
 # Isi dengan string acak yang panjang
 JWT_SECRET=rahasia_super_aman_ganti_ini

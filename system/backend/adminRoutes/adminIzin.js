@@ -6,86 +6,141 @@ import path from "path";
 dotenv.config({ path: path.resolve("../../../.env") });
 
 const router = express.Router();
-const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
+// Gunakan SERVICE_ROLE_KEY agar bisa bypass RLS
+const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
 
-// GET Izin
+// ====================================================================
+// GET: Semua Data Izin (Hanya untuk perusahaan Admin login)
+// ====================================================================
 router.get("/api/admin/izin", async (req, res) => {
   try {
-    const id_perusahaan = req.user.id_perusahaan;
-    const limit = parseInt(req.query.limit) || 10;
-    const page = parseInt(req.query.page) || 1;
-    const offset = (page - 1) * limit;
+    const id_perusahaan = req.user.id_perusahaan; // ID Perusahaan Admin
 
-    const { data, error, count } = await supabase
+    // --- PERBAIKAN QUERY ---
+    const { data, error } = await supabase
       .from("izin_wfh")
       .select(`
-        id_izin, id_akun, tanggal_mulai, tanggal_selesai, jenis_izin, alasan,
-        status_persetujuan, tanggal_pengajuan,
-        akun:akun!izin_wfh_id_akun_fkey(username)
-      `, { count: "exact" })
-      .eq("akun.id_perusahaan", id_perusahaan)
-      .order("tanggal_pengajuan", { ascending: false })
-      .range(offset, offset + limit - 1);
+        *,
+        akun:id_akun!inner (     
+          username,
+          id_perusahaan,
+          jabatan:id_jabatan ( nama_jabatan )
+        )
+      `)
+      // Filter berdasarkan kolom di tabel RELASI (akun), bukan tabel izin_wfh
+      .eq("akun.id_perusahaan", id_perusahaan) 
+      .order("tanggal_pengajuan", { ascending: false });
+
+    /* PENJELASAN PERUBAHAN:
+       1. akun:id_akun!inner -> Menggunakan "!inner" (Inner Join).
+          Artinya: Hanya ambil data izin yang punya akun valid DAN sesuai filter.
+       2. .eq("akun.id_perusahaan", id_perusahaan) -> Kita filter kolom id_perusahaan MILIK AKUN.
+          Kode lama kamu: .eq("id_perusahaan", ...) salah karena tabel izin_wfh gak punya kolom itu.
+    */
 
     if (error) throw error;
-    res.json({ data, page, limit, total: count });
+
+    res.json({ success: true, data });
   } catch (err) {
-    res.status(500).json({ message: "Gagal memuat izin" });
+    console.error("Error fetch izin admin:", err);
+    res.status(500).json({ message: "Gagal memuat data izin." });
   }
 });
 
-// PATCH Verifikasi Izin
-router.patch("/api/admin/izin/:id_izin", async (req, res) => {
+// ====================================================================
+// PATCH: Verifikasi Izin (APPROVE/REJECT) + AUTO GENERATE ABSEN
+// ====================================================================
+router.patch("/api/admin/izin/:id_izin/verifikasi", async (req, res) => {
   try {
     const { id_izin } = req.params;
-    const { status_persetujuan, keterangan } = req.body;
-    const id_verifikator = req.user.id_akun; 
-    const id_perusahaan = req.user.id_perusahaan; 
+    const { status_persetujuan, keterangan_verifikator } = req.body;
+    const id_verifikator = req.user.id_akun;
 
-    // 1. Update status
+    // 1. Update Status di Tabel Izin WFH
     const { data: izinData, error: updateError } = await supabase
       .from("izin_wfh")
       .update({
         status_persetujuan,
         id_verifikator,
         tanggal_verifikasi: new Date(),
-        keterangan: keterangan || null,
+        keterangan: keterangan_verifikator 
       })
       .eq("id_izin", id_izin)
-      .select().single();
+      .select()
+      .single();
 
     if (updateError) throw updateError;
 
-    // 2. Auto Generate Kehadiran jika DISETUJUI
-    if (status_persetujuan === "DISETUJUI" && izinData) {
-      const startDate = new Date(izinData.tanggal_mulai);
-      const endDate = new Date(izinData.tanggal_selesai);
-      const insertPayloads = [];
+    // 2. JIKA DISETUJUI -> GENERATE DATA KEHADIRAN OTOMATIS
+    if (status_persetujuan === "DISETUJUI") {
+      const { id_akun, tanggal_mulai, tanggal_selesai, jenis_izin } = izinData;
 
-      for (let d = startDate; d <= endDate; d.setDate(d.getDate() + 1)) {
-        insertPayloads.push({
-          id_akun: izinData.id_akun,
-          id_shift: null,
-          jam_masuk: null,
-          jam_pulang: null,
-          status: izinData.jenis_izin, 
-          created_at: new Date(d).toISOString(), 
-          id_perusahaan: id_perusahaan, 
-          keterangan: "Otomatis dari Persetujuan Izin",
-          latitude_absen: 0,
-          longitude_absen: 0
-        });
-      }
+      // Ambil detail akun untuk mengisi id_perusahaan & id_shift
+      const { data: akunData } = await supabase
+        .from("akun")
+        .select("id_perusahaan, id_shift")
+        .eq("id_akun", id_akun)
+        .single();
+      
+      const id_perusahaan = akunData?.id_perusahaan;
+      const id_shift = akunData?.id_shift;
 
-      if (insertPayloads.length > 0) {
-        await supabase.from("kehadiran").insert(insertPayloads);
+      // Loop tanggal dari Mulai sampai Selesai
+      let currentDate = new Date(tanggal_mulai);
+      const endDate = new Date(tanggal_selesai);
+
+      while (currentDate <= endDate) {
+        const dateStr = currentDate.toISOString().split('T')[0]; 
+        
+        // Cek existing data (agar tidak duplikat dengan cronjob atau absen manual)
+        const { data: existingAbsen } = await supabase
+          .from("kehadiran")
+          .select("id_kehadiran")
+          .eq("id_akun", id_akun)
+          .gte("created_at", `${dateStr}T00:00:00`)
+          .lte("created_at", `${dateStr}T23:59:59`)
+          .maybeSingle();
+
+        // Payload KHUSUS Tabel Kehadiran (Tanpa kolom keterangan, sesuai schema)
+        const payload = {
+            status: jenis_izin, // 'IZIN' atau 'WFH'
+            jam_masuk: null,    
+            jam_pulang: null
+        };
+
+        if (existingAbsen) {
+          // Update data lama (misal ALFA -> IZIN)
+          await supabase
+            .from("kehadiran")
+            .update(payload)
+            .eq("id_kehadiran", existingAbsen.id_kehadiran);
+        } else {
+          // Insert data baru
+          await supabase
+            .from("kehadiran")
+            .insert({
+              ...payload,
+              id_akun,
+              id_perusahaan,
+              id_shift, 
+              created_at: new Date(currentDate).toISOString()
+            });
+        }
+
+        currentDate.setDate(currentDate.getDate() + 1);
       }
     }
 
-    res.json({ message: "✅ Status izin diperbarui", izin: izinData });
+    res.json({ 
+      success: true, 
+      message: status_persetujuan === "DISETUJUI" 
+        ? "Izin disetujui & data kehadiran telah dibuat." 
+        : "Izin ditolak." 
+    });
+
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: "Gagal verifikasi izin" });
+    console.error("Error verifikasi izin:", err);
+    res.status(500).json({ message: "Gagal memproses verifikasi." });
   }
 });
 

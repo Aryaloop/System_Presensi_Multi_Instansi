@@ -33,8 +33,8 @@ CREATE TABLE public.izin_wfh (
   id_verifikator uuid,
   keterangan text,
   CONSTRAINT izin_wfh_pkey PRIMARY KEY (id_izin),
-  CONSTRAINT izin_wfh_id_akun_fkey FOREIGN KEY (id_akun) REFERENCES public.akun(id_akun),
-  CONSTRAINT izin_wfh_id_verifikator_fkey FOREIGN KEY (id_verifikator) REFERENCES public.akun(id_akun)
+  CONSTRAINT izin_wfh_id_verifikator_fkey FOREIGN KEY (id_verifikator) REFERENCES public.akun(id_akun),
+  CONSTRAINT izin_wfh_id_akun_fkey FOREIGN KEY (id_akun) REFERENCES public.akun(id_akun)
 );
 CREATE TABLE public.jabatan (
   id_jabatan character varying NOT NULL,
@@ -54,9 +54,9 @@ CREATE TABLE public.kehadiran (
   created_at timestamp with time zone DEFAULT now(),
   id_perusahaan character varying,
   CONSTRAINT kehadiran_pkey PRIMARY KEY (id_kehadiran),
-  CONSTRAINT kehadiran_id_akun_fkey FOREIGN KEY (id_akun) REFERENCES public.akun(id_akun),
   CONSTRAINT kehadiran_id_shift_fkey FOREIGN KEY (id_shift) REFERENCES public.shift(id_shift),
-  CONSTRAINT kehadiran_id_perusahaan_fkey FOREIGN KEY (id_perusahaan) REFERENCES public.perusahaan(id_perusahaan)
+  CONSTRAINT kehadiran_id_perusahaan_fkey FOREIGN KEY (id_perusahaan) REFERENCES public.perusahaan(id_perusahaan),
+  CONSTRAINT kehadiran_id_akun_fkey FOREIGN KEY (id_akun) REFERENCES public.akun(id_akun)
 );
 CREATE TABLE public.perusahaan (
   id_perusahaan character varying NOT NULL,
@@ -84,7 +84,30 @@ CREATE TABLE public.shift (
   jam_masuk time without time zone,
   jam_pulang time without time zone,
   id_perusahaan character varying,
-  hari_shift character varying,
+  is_senin boolean DEFAULT false,
+  is_selasa boolean DEFAULT false,
+  is_rabu boolean DEFAULT false,
+  is_kamis boolean DEFAULT false,
+  is_jumat boolean DEFAULT false,
+  is_sabtu boolean DEFAULT false,
+  is_minggu boolean DEFAULT false,
   CONSTRAINT shift_pkey PRIMARY KEY (id_shift),
   CONSTRAINT shift_id_perusahaan_fkey FOREIGN KEY (id_perusahaan) REFERENCES public.perusahaan(id_perusahaan)
 );
+
+
+BEGIN
+  RETURN QUERY
+  SELECT
+    k.id_kehadiran,
+    k.jam_masuk,
+    k.jam_pulang,
+    k.status,
+    k.created_at
+  FROM kehadiran k
+  WHERE
+    k.id_akun = _user_id
+    AND EXTRACT(MONTH FROM k.created_at) = _bulan
+    AND EXTRACT(YEAR FROM k.created_at) = _tahun
+  ORDER BY k.created_at DESC;
+END;

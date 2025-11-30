@@ -54,7 +54,7 @@ export default function WidgetKalender() {
       <div className="custom-calendar-wrapper">
         <Calendar
           // Hapus props nextLabel={null} jika ingin panah navigasi muncul standar
-          // nextLabel={null} prevLabel={null} 
+
           
           // Update state saat user ganti bulan via panah navigasi
           onActiveStartDateChange={({ activeStartDate }) => setActiveDate(activeStartDate)}

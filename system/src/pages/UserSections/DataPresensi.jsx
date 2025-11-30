@@ -252,7 +252,7 @@ export default function DataPresensi() {
 
       <div className="bg-white rounded-xl border p-6 mt-6">
         <div className="font-semibold mb-4">
-          📊 Grafik Jam Kerja per Bulan — {new Date().toLocaleString("id-ID", { year: "numeric" })}
+          Grafik Jam Kerja per Bulan Tahun {new Date().toLocaleString("id-ID", { year: "numeric" })}
         </div>
         {calculateMonthlyWorkHours().length > 0 ? (
           <ResponsiveContainer width="100%" height={320}>

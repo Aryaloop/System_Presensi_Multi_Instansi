@@ -3,17 +3,29 @@ import jwt from "jsonwebtoken";
 import { v4 as uuidv4 } from "uuid";
 import { db, supabase } from "../config/db.js"; // Import dari config baru
 import { sendEmail } from "../emailService.js"; // Asumsi file ini ada di root backend
-
+import { logActivity } from "../utils/logger.js"; // <--- IMPORT HELPER
 export class AuthController {
   // --- LOGIN ---
   static async login(req, res) {
     try {
       const { email, password } = req.body;
 
-      // 1. Cek Email
-      const { data: akun, error } = await db.findAkunByEmail(email);
+      // 1. Cek Email & Ambil Data Akun
+      // Pastikan select mengambil status_akun juga
+      const { data: akun, error } = await supabase
+        .from("akun")
+        .select("*, perusahaan:perusahaan(*)") // Join manual atau sesuaikan dengan query db helper Anda
+        .eq("email", email)
+        .single();
+
       if (error || !akun) return res.status(401).json({ message: "Email tidak terdaftar" });
 
+      // LOGIC BARU: Cek Status Kepegawaian 
+      if (akun.status_akun === 'NONAKTIF') {
+        return res.status(403).json({
+          message: "Akun Anda telah dinonaktifkan. Silakan hubungi Admin."
+        });
+      }
       // 2. Cek Status Perusahaan
       const { data: perusahaan, error: pError } = await supabase
         .from("perusahaan")
@@ -43,6 +55,20 @@ export class AuthController {
         secure: process.env.NODE_ENV === "production",
         sameSite: "lax",
         maxAge: 24 * 60 * 60 * 1000,
+      });
+
+      // ==========================================
+      // TAMBAHAN LOG AKTIVITAS (Implementasi)
+      // ==========================================
+      await logActivity({
+        req: req,
+        id_akun: akun.id_akun,
+        id_perusahaan: akun.id_perusahaan,
+        action: "LOGIN",
+        details: {
+          role: akun.id_jabatan,
+          msg: "User berhasil login"
+        }
       });
 
       // 6. Response JSON
@@ -93,7 +119,14 @@ export class AuthController {
 
       const resetToken = uuidv4();
       await supabase.from("akun").update({ token_reset: resetToken }).eq("id_akun", akun.id_akun);
-
+      // LOG FORGOT PASSWORD REQUEST
+      await logActivity({
+        req: req,
+        id_akun: akun.id_akun, // Akun yang minta reset
+        id_perusahaan: akun.id_perusahaan,
+        action: "REQUEST_RESET_PASSWORD",
+        details: { email: email, msg: "Permintaan reset password dikirim" }
+      });
       const resetLink = `${process.env.FRONTEND_URL}/reset-password/${resetToken}`;
       await sendEmail(email, "🔐 Reset Password", `Klik link ini: ${resetLink}`);
 
@@ -115,7 +148,13 @@ export class AuthController {
 
       const hashed = await bcrypt.hash(password, 10);
       await supabase.from("akun").update({ password: hashed, token_reset: null }).eq("id_akun", akun.id_akun);
-
+      await logActivity({
+        req: req,
+        id_akun: akun.id_akun,
+        id_perusahaan: akun.id_perusahaan,
+        action: "RESET_PASSWORD_SUCCESS",
+        details: { msg: "User berhasil mengubah password via token" }
+      });
       res.json({ message: "Password berhasil diubah" });
     } catch (error) {
       res.status(500).json({ message: "Error server" });

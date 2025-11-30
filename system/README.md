@@ -1,16 +1,72 @@
-# React + Vite
+## 📝 System Activity Logs (Audit Trail)
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Sistem ini menerapkan pencatatan aktivitas pengguna (*Audit Trail*) untuk keamanan dan pemantauan data. Semua aktivitas penting disimpan dalam tabel database `activity_logs`.
 
-Currently, two official plugins are available:
+Berikut adalah daftar aktivitas yang dicatat oleh sistem:
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+### 1. Otentikasi & Keamanan Akun
+Aktivitas terkait akses masuk dan perubahan kredensial pengguna.
 
-## React Compiler
+| Action Name | Deskripsi | Trigger / Pemicu |
+| :--- | :--- | :--- |
+| `LOGIN` | User berhasil masuk ke sistem | Saat endpoint `/login` sukses |
+| `LOGOUT` | User keluar dari sistem | Saat endpoint `/logout` dipanggil |
+| `REGISTER_USER` | Pendaftaran user baru (Mandiri) | Saat user mendaftar via halaman Register |
+| `VERIFY_EMAIL` | Verifikasi email user | Saat user mengklik link verifikasi di email |
+| `REQUEST_RESET_PASSWORD` | Permintaan reset password | Saat user menggunakan fitur Lupa Password |
+| `RESET_PASSWORD_SUCCESS` | Perubahan password berhasil | Saat user sukses mengganti password via token reset |
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+### 2. Manajemen Super Admin
+Aktivitas administratif tingkat tinggi yang dilakukan oleh Super Admin.
 
-## Expanding the ESLint configuration
+| Action Name | Deskripsi | Trigger / Pemicu |
+| :--- | :--- | :--- |
+| `CREATE_ADMIN` | Pembuatan Admin baru | Super Admin membuat akun Admin untuk perusahaan |
+| `CREATE_PERUSAHAAN` | Menambah data perusahaan | Super Admin input perusahaan baru |
+| `UPDATE_PERUSAHAAN` | Edit data perusahaan | Perubahan nama, alamat, atau status perusahaan |
+| `SUSPEND_PERUSAHAAN` | Suspend/Aktifkan perusahaan | Mengubah status aktif/non-aktif perusahaan |
+| `DELETE_PERUSAHAAN` | Menghapus perusahaan | Menghapus data perusahaan (Soft/Hard delete) |
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+### 3. Struktur Tabel Log
+Log disimpan di tabel `activity_logs` dengan struktur data JSONB untuk fleksibilitas detail.
+
+- **id_akun**: UUID pelakunya (User/Admin).
+- **id_perusahaan**: ID Perusahaan asal pelaku (kecuali Super Admin).
+- **action**: Kode aksi (seperti daftar di atas).
+- **target_table**: Tabel yang dimodifikasi (misal: `akun`, `perusahaan`).
+- **details**: JSON berisi detail perubahan (misal: `{"old_value": "...", "new_value": "..."}`).
+- **ip_address**: Alamat IP pelaku.
+- **user_agent**: Informasi browser/perangkat pelaku.
+
+> **Catatan Security:** ID Perusahaan System (`PRE010`) diproteksi dari modifikasi (Edit/Delete) dan upaya akses ilegal terhadap ID ini akan ditolak oleh sistem (403 Forbidden).
+
+### 🛡️ Konfigurasi System Company ID (Hardcoded Protection)
+
+Secara default, sistem menggunakan ID **`PRE010`** sebagai identitas "Perusahaan System" (Root/Internal). ID ini memiliki proteksi khusus di Backend agar tidak bisa dihapus atau disuspend, karena biasanya digunakan untuk akun Super Admin atau SysAdmin.
+
+**Panduan untuk Developer (Customizing System ID):**
+
+Jika Anda ingin mengubah ID ini agar sesuai dengan kode perusahaan Anda (misal: `MYCORP01` atau `HO_JKT`), ikuti langkah berikut:
+
+1.  **Persiapan Database:**
+    Pastikan Anda sudah menginsert data perusahaan dengan ID baru tersebut di tabel `perusahaan` database Anda.
+
+2.  **Update Logic Backend:**
+    Buka file controller berikut:
+    `backend/superAdminRoutes/controllers/perusahaanController.js`
+
+    Cari variabel konstanta berikut di bagian atas file dan ubah nilainya:
+    ```javascript
+    // 🔒 CONSTANT: ID Perusahaan System/Internal
+    const SYSTEM_COMPANY_ID = "PRE010"; // <-- Ganti string ini dengan ID Perusahaan Anda
+    ```
+
+3.  **Update Filter Frontend (Opsional):**
+    Jika Anda ingin menyembunyikan perusahaan sistem ini dari tabel manajemen di dashboard, sesuaikan juga filter di file:
+    `src/pages/SuperAdminSections/PerusahaanManager.jsx`
+    ```javascript
+    // Filter visual agar System ID tidak muncul di tabel
+    const perusahaan = rawData.filter(p => p.id_perusahaan !== "PRE010"); // <-- Sesuaikan ID di sini juga
+    ```
+
+> **Penting:** Pastikan ID yang Anda pasang di code **BENAR-BENAR ADA** di database. Jika tidak, logika proteksi mungkin tidak berjalan semestinya atau Super Admin kehilangan akses ke fitur tertentu.

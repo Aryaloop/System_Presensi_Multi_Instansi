@@ -138,19 +138,17 @@ export default function CardAbsenGPS() {
   };
 
   // --- LOGIC STATUS TOMBOL ---
-  // Cari data kehadiran hari ini
   const kehadiranHariIni = kehadiran.find((d) => {
     const created = toLocalDate(d.created_at);
     return created.toDateString() === today.toDateString();
   });
   
-  // Logic: 
-  // - sudahAbsenMasuk = True jika kolom jam_masuk sudah terisi
-  // - sudahPulang = True jika kolom jam_pulang sudah terisi
   const sudahAbsenMasuk = kehadiranHariIni?.jam_masuk != null; 
   const sudahPulang = kehadiranHariIni?.jam_pulang != null;
-  const isIzin = ["IZIN", "WFH"].includes(kehadiranHariIni?.status);
   
+  // Logic Disable: Jika status adalah "IZIN", tombol akan mati.
+  const isIzin = kehadiranHariIni?.status === "IZIN";
+
   const jamMasukDisplay = jamShift?.jam_masuk ? `${jamShift.jam_masuk} WIB` : "(Non-Shift)";
   const jamPulangDisplay = jamShift?.jam_pulang ? `${jamShift.jam_pulang} WIB` : "(Non-Shift)";
 
@@ -167,15 +165,17 @@ export default function CardAbsenGPS() {
 
       <div className="p-4">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          
           {/* ================= TOMBOL MASUK ================= */}
           <button
             onClick={() => handleAttendance("MASUK")}
-            // Disable jika: Loading, Izin, Sudah Masuk, atau Belum Jam Kerja
+            // Disable logic: Loading OR Izin OR Sudah Masuk OR Belum Jam Kerja
             disabled={loading || isIzin || sudahAbsenMasuk || belumJamKerja}
             className={`h-14 rounded-lg font-semibold text-white transition flex flex-col items-center justify-center 
               ${(loading || isIzin || sudahAbsenMasuk || belumJamKerja) ? "bg-gray-400 cursor-not-allowed" : "bg-emerald-600 hover:bg-emerald-700 active:scale-95"}`}
           >
             <span className="text-sm">
+              {/* Text tetap standar, tidak ada info Izin */}
               {sudahAbsenMasuk ? "✅ Sudah Absen Masuk" : belumJamKerja ? "⏳ Belum Jam Masuk" : "Tekan untuk Absen Masuk"}
             </span>
             <span className="text-xs opacity-80 font-normal mt-0.5">
@@ -194,10 +194,10 @@ export default function CardAbsenGPS() {
                     confirmButtonText: "Ya",
                 }).then((r) => r.isConfirmed && handleAttendance("KELUAR"));
             }}
-            // Disable jika: Loading, Belum Masuk, atau Sudah Pulang
-            disabled={loading || !sudahAbsenMasuk || sudahPulang}
+            // Disable logic: Loading OR Izin OR Belum Masuk OR Sudah Pulang
+            disabled={loading || isIzin || !sudahAbsenMasuk || sudahPulang}
             className={`h-14 rounded-lg font-semibold text-white transition flex flex-col items-center justify-center
-              ${(loading || !sudahAbsenMasuk || sudahPulang) ? "bg-gray-400 cursor-not-allowed" : "bg-indigo-600 hover:bg-indigo-700 active:scale-95"}`}
+              ${(loading || isIzin || !sudahAbsenMasuk || sudahPulang) ? "bg-gray-400 cursor-not-allowed" : "bg-indigo-600 hover:bg-indigo-700 active:scale-95"}`}
           >
             <span className="text-sm">
               {sudahPulang ? "✅ Sudah Pulang" : "Absen Pulang"}

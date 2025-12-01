@@ -12,9 +12,9 @@ import { verifyToken } from "../authMiddleware.js";
 
 const router = express.Router();
 router.use(compression());
-
+ 
 // ===================================================================
-// 🔒 GLOBAL MIDDLEWARE
+// GLOBAL MIDDLEWARE
 // Semua route user di bawah ini WAJIB pakai Token User
 // ===================================================================
 router.use(verifyToken);

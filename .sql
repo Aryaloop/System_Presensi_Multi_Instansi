@@ -1,6 +1,21 @@
 -- WARNING: This schema is for context only and is not meant to be run.
 -- Table order and constraints may not be valid for execution.
 
+CREATE TABLE public.activity_logs (
+  id_log uuid NOT NULL DEFAULT gen_random_uuid(),
+  id_akun uuid,
+  id_perusahaan character varying,
+  action character varying NOT NULL,
+  target_table character varying,
+  target_id character varying,
+  details jsonb,
+  ip_address character varying,
+  user_agent text,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT activity_logs_pkey PRIMARY KEY (id_log),
+  CONSTRAINT activity_logs_id_akun_fkey FOREIGN KEY (id_akun) REFERENCES public.akun(id_akun),
+  CONSTRAINT activity_logs_id_perusahaan_fkey FOREIGN KEY (id_perusahaan) REFERENCES public.perusahaan(id_perusahaan)
+);
 CREATE TABLE public.akun (
   id_akun uuid NOT NULL DEFAULT gen_random_uuid(),
   username character varying NOT NULL,
@@ -15,6 +30,7 @@ CREATE TABLE public.akun (
   token_verifikasi text,
   token_reset text,
   id_shift character varying,
+  status_akun character varying DEFAULT 'AKTIF'::character varying,
   CONSTRAINT akun_pkey PRIMARY KEY (id_akun),
   CONSTRAINT akun_id_jabatan_fkey FOREIGN KEY (id_jabatan) REFERENCES public.jabatan(id_jabatan),
   CONSTRAINT akun_id_perusahaan_fkey FOREIGN KEY (id_perusahaan) REFERENCES public.perusahaan(id_perusahaan),
@@ -47,7 +63,7 @@ CREATE TABLE public.kehadiran (
   id_shift character varying,
   jam_masuk timestamp with time zone,
   jam_pulang timestamp with time zone,
-  status character varying CHECK (status::text = ANY (ARRAY['HADIR'::character varying, 'IZIN'::character varying, 'ALFA'::character varying, 'WFH'::character varying, 'TERLAMBAT'::character varying]::text[])),
+  status character varying CHECK (status::text = ANY (ARRAY['HADIR'::character varying::text, 'IZIN'::character varying::text, 'ALFA'::character varying::text, 'WFH'::character varying::text, 'TERLAMBAT'::character varying::text])),
   latitude_absen double precision,
   longitude_absen double precision,
   gambar_absen text,
@@ -94,20 +110,3 @@ CREATE TABLE public.shift (
   CONSTRAINT shift_pkey PRIMARY KEY (id_shift),
   CONSTRAINT shift_id_perusahaan_fkey FOREIGN KEY (id_perusahaan) REFERENCES public.perusahaan(id_perusahaan)
 );
-
-
-BEGIN
-  RETURN QUERY
-  SELECT
-    k.id_kehadiran,
-    k.jam_masuk,
-    k.jam_pulang,
-    k.status,
-    k.created_at
-  FROM kehadiran k
-  WHERE
-    k.id_akun = _user_id
-    AND EXTRACT(MONTH FROM k.created_at) = _bulan
-    AND EXTRACT(YEAR FROM k.created_at) = _tahun
-  ORDER BY k.created_at DESC;
-END;

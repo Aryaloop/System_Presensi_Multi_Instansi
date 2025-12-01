@@ -19,7 +19,7 @@ export class AuthController {
         .single();
 
       if (error || !akun) return res.status(401).json({ message: "Email tidak terdaftar" });
-
+ 
       // LOGIC BARU: Cek Status Kepegawaian 
       if (akun.status_akun === 'NONAKTIF') {
         return res.status(403).json({

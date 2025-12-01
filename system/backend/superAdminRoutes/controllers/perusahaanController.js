@@ -7,7 +7,7 @@
  * * Deskripsi:
  * Controller ini menangani operasi CRUD (Create, Read, Update, Delete) untuk
  * data 'Perusahaan' pada dashboard Super Admin.
- * * Fitur Utama:
+ * * Fitur Utama: 
  * 1. Pagination & Search (Server-side).
  * 2. Proteksi Data System (Hardcoded ID Protection).
  * 3. Validasi Relasi (Mencegah hapus perusahaan jika masih ada akun).

@@ -4,7 +4,7 @@ import rateLimit from "express-rate-limit";
 // Maksimal 5 percobaan per 15 menit per IP
 export const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 menit
-  max: 5, 
+  max: 10, 
   message: {
     message: "Terlalu banyak percobaan login/daftar. Silakan coba lagi dalam 15 menit."
   },

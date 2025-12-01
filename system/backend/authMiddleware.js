@@ -22,7 +22,6 @@ export const verifyToken = (req, res, next) => {
 
 export const verifyAdmin = (req, res, next) => {
   // Middleware tambahan untuk memastikan role adalah ADMIN, SPRADM, atau SUBADMIN
-  // ✅ UPDATE DI SINI: Tambahkan pengecekan && req.user.role !== "SUBADMIN"
   if (req.user.role !== "ADMIN" && req.user.role !== "SPRADM" && req.user.role !== "SUBADMIN") {
     return res.status(403).json({ message: "Akses ditolak! Halaman ini khusus Admin." });
   }

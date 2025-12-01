@@ -8,57 +8,122 @@ dotenv.config({ path: path.resolve("../../../.env") });
 const router = express.Router();
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
 
-// GET Kehadiran Bulanan
-router.get("/api/admin/kehadiran-bulanan", async (req, res) => {
+// ====================================================================
+// GET: Kehadiran (Pagination + Search UID + Sort Terbaru)
+// ====================================================================
+router.get("/api/admin/kehadiran", async (req, res) => {
   try {
     const id_perusahaan = req.user.id_perusahaan;
-    const { bulan, tahun } = req.query;
-    const start = new Date(tahun, bulan - 1, 1).toISOString();
-    const end = new Date(tahun, bulan, 0).toISOString();
+    const { bulan, tahun, status, search, page = 1, limit = 10 } = req.query;
 
-    const { data, error } = await supabase
+    // 1. Validasi Wajib
+    if (!bulan || !tahun) {
+      return res.status(400).json({ message: "Parameter bulan dan tahun wajib diisi." });
+    }
+
+    // --- PERBAIKAN DISINI (Konversi ke Angka) ---
+    const pageNum = parseInt(page) || 1;
+    const limitNum = parseInt(limit) || 20;
+
+    // Hitung range pagination yang benar
+    const from = (pageNum - 1) * limitNum;
+    const to = from + limitNum - 1;
+    // ---------------------------------------------
+
+    // Range Tanggal
+    const startDate = `${tahun}-${bulan.toString().padStart(2, '0')}-01T00:00:00`;
+    const lastDay = new Date(tahun, bulan, 0).getDate();
+    const endDate = `${tahun}-${bulan.toString().padStart(2, '0')}-${lastDay}T23:59:59`;
+
+    // 1. Query Dasar
+    let query = supabase
       .from("kehadiran")
       .select(`
-        id_kehadiran, id_akun, jam_masuk, jam_pulang, status, created_at,
-        akun:akun!kehadiran_id_akun_fkey(username, id_shift, shift:shift!akun_id_shift_fkey(nama_shift))
-      `)
+        *,
+        akun:id_akun!inner (
+            username,
+            id_akun, 
+            id_jabatan,
+            jabatan:id_jabatan ( nama_jabatan )
+        ),
+        shift:id_shift ( nama_shift, jam_masuk, jam_pulang )
+      `, { count: 'exact' }) // Minta total jumlah data juga
       .eq("id_perusahaan", id_perusahaan)
-      .gte("created_at", start)
-      .lte("created_at", end)
-      .order("created_at", { ascending: true });
+      .gte("created_at", startDate)
+      .lte("created_at", endDate)
+      .order("created_at", { ascending: false }); // URUTKAN DARI TERBARU (Hari Ini Dulu)
+
+    // 2. Filter Status
+    if (status && status !== "ALL") {
+      query = query.eq("status", status);
+    }
+
+    // 3. Filter Search (Nama atau UID)
+    if (search) {
+      // Cek apakah input adalah UUID (pola 8-4-4-4-12 char)
+      const isUUID = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(search);
+      
+      if (isUUID) {
+        // Jika UUID, cari berdasarkan ID Akun persis
+        query = query.eq("id_akun", search);
+      } else {
+        // Jika bukan UUID, cari berdasarkan nama (ilike = case insensitive)
+        // Kita filter di relasi 'akun' menggunakan !inner join di atas
+        query = query.ilike("akun.username", `%${search}%`);
+      }
+    }
+
+    // 4. Pagination (Batasi data yg diambil)
+    query = query.range(from, to);
+
+    const { data, count, error } = await query;
 
     if (error) throw error;
 
-    const result = data.map((d) => ({
-      id_kehadiran: d.id_kehadiran,
-      id_akun: d.id_akun,
-      username: d.akun.username,
-      nama_shift: d.akun.shift?.nama_shift || "-",
-      jam_masuk: d.jam_masuk,
-      jam_pulang: d.jam_pulang,
-      status: d.status,
-      created_at: d.created_at,
-    }));
-    res.json({ data: result });
+    res.json({
+      success: true,
+      data: data,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total_data: count,
+        total_page: Math.ceil(count / limit)
+      }
+    });
+
   } catch (err) {
-    res.status(500).json({ message: "Gagal memuat kehadiran" });
+    console.error("❌ Error fetch kehadiran:", err);
+    res.status(500).json({ message: "Gagal memuat data kehadiran." });
   }
 });
 
-// PATCH Edit Kehadiran
+// ====================================================================
+// PATCH: Edit Kehadiran (Koreksi Admin)
+// ====================================================================
 router.patch("/api/admin/kehadiran/:id_kehadiran", async (req, res) => {
   try {
     const { id_kehadiran } = req.params;
-    const { status, jam_masuk, jam_pulang } = req.body;
+    const { status, jam_masuk, jam_pulang, keterangan } = req.body;
+
+    // Update data
     const { data, error } = await supabase
       .from("kehadiran")
-      .update({ status, jam_masuk, jam_pulang })
+      .update({
+        status,       // Bisa ubah jadi HADIR, IZIN, ALFA, dll
+        jam_masuk,    // Admin bisa set manual jamnya
+        jam_pulang,
+      })
       .eq("id_kehadiran", id_kehadiran)
-      .select().single();
+      .select()
+      .single();
+
     if (error) throw error;
-    res.json({ message: "✅ Kehadiran diperbarui", data });
+
+    res.json({ success: true, message: "✅ Data kehadiran berhasil dikoreksi.", data });
+
   } catch (err) {
-    res.status(500).json({ message: "Gagal update kehadiran" });
+    console.error("❌ Error update:", err);
+    res.status(500).json({ message: "Gagal mengupdate data." });
   }
 });
 

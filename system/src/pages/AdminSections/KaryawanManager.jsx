@@ -8,14 +8,14 @@ export default function KaryawanManager() {
   const [currentPage, setCurrentPage] = useState(1);
   const [showEditForm, setShowEditForm] = useState(false);
   const [selectedKaryawan, setSelectedKaryawan] = useState(null);
-  
+
   // State untuk menyimpan daftar shift
   const [shiftList, setShiftList] = useState([]);
   const limit = 20;
 
-  // ============================================================
-  // 🛠️ HELPER: Format Hari Kerja (Boolean -> Teks)
-  // ============================================================
+
+  // HELPER: Format Hari Kerja (Boolean -> Teks)
+
   const renderHariKerja = (shift) => {
     const days = [];
     if (shift.is_senin) days.push("Sen");
@@ -28,9 +28,9 @@ export default function KaryawanManager() {
     return days.length > 0 ? days.join(", ") : "Tidak ada jadwal";
   };
 
-  // =============================
-  // 📡 Ambil Data Karyawan
-  // =============================
+  // ===========
+  // Ambil Data Karyawan
+  // ===========
   const { data: karyawanData = { data: [], total: 0 }, isLoading, isError } = useQuery({
     queryKey: ["karyawan", currentPage],
     queryFn: async () => {
@@ -45,9 +45,9 @@ export default function KaryawanManager() {
   const handleRefresh = () =>
     queryClient.invalidateQueries(["karyawan", currentPage]);
 
-  // =============================
-  // ⚙️ Ambil Daftar Shift untuk Dropdown
-  // =============================
+  // ===========
+  // Ambil Daftar Shift untuk Dropdown
+  // ===========
   const fetchShiftList = async () => {
     try {
       const res = await axios.get("/api/admin/shift");
@@ -58,12 +58,12 @@ export default function KaryawanManager() {
   };
 
   useEffect(() => {
-    fetchShiftList(); 
+    fetchShiftList();
   }, []);
 
-  // =============================
-  // 🟡 Edit Karyawan
-  // =============================
+  // ===========
+  // Edit Karyawan
+  // ===========
   const handleEditKaryawan = (karyawan) => {
     setSelectedKaryawan({ ...karyawan });
     setShowEditForm(true);
@@ -81,35 +81,68 @@ export default function KaryawanManager() {
     }
   };
 
-  // =============================
-  // 🔴 Hapus Karyawan
-  // =============================
+  // HANDLER: Non-aktifkan Karyawan (Soft Delete)
+
   const handleDeleteKaryawan = async (id_akun) => {
-    const confirmDelete = await Swal.fire({
-      title: "Yakin ingin menghapus?",
-      text: "Data karyawan ini akan dihapus secara permanen.",
+    const confirmAction = await Swal.fire({
+      title: "Non-aktifkan Karyawan?",
+      text: "Karyawan tidak akan bisa login, namun data presensi tetap aman.",
       icon: "warning",
       showCancelButton: true,
-      confirmButtonColor: "#d33",
+      confirmButtonColor: "#d33", // Merah
       cancelButtonColor: "#6c757d",
-      confirmButtonText: "Ya, hapus!",
+      confirmButtonText: "Ya, Non-aktifkan!",
       cancelButtonText: "Batal",
     });
 
-    if (confirmDelete.isConfirmed) {
+    if (confirmAction.isConfirmed) {
       try {
+        // Memanggil endpoint DELETE (yang di backend sudah kita ubah jadi Soft Delete)
         await axios.delete(`/api/admin/karyawan/${id_akun}`);
-        Swal.fire("🗑️ Dihapus!", "Karyawan berhasil dihapus.", "success");
-        handleRefresh();
+
+        Swal.fire("Berhasil!", "Akun karyawan telah dinonaktifkan.", "success");
+        handleRefresh(); // Refresh tabel
       } catch (err) {
-        Swal.fire("❌ Gagal", "Terjadi kesalahan saat menghapus data", "error");
+        console.error(err);
+        Swal.fire("Gagal", "Terjadi kesalahan saat menonaktifkan akun.", "error");
       }
     }
   };
 
-  // =============================
-  // 🧱 Tampilan UI
-  // =============================
+
+  // HANDLER: Restore / Aktifkan Kembali
+
+  const handleRestoreKaryawan = async (id_akun) => {
+    const confirmAction = await Swal.fire({
+      title: "Aktifkan Kembali?",
+      text: "Karyawan akan dapat login dan melakukan presensi lagi.",
+      icon: "question",
+      showCancelButton: true,
+      confirmButtonColor: "#10B981", // Hijau
+      cancelButtonColor: "#6c757d",
+      confirmButtonText: "Ya, Aktifkan!",
+      cancelButtonText: "Batal",
+    });
+
+    if (confirmAction.isConfirmed) {
+      try {
+        // Kita gunakan endpoint PUT untuk update status kembali ke 'AKTIF'
+        await axios.put(`/api/admin/karyawan/${id_akun}`, {
+          status_akun: 'AKTIF'
+        });
+
+        Swal.fire("Berhasil!", "Akun karyawan kembali AKTIF.", "success");
+        handleRefresh(); // Refresh tabel
+      } catch (err) {
+        console.error(err);
+        Swal.fire("Gagal", "Gagal mengaktifkan kembali akun.", "error");
+      }
+    }
+  };
+
+  // ===========
+  // Tampilan UI
+  // ===========
   return (
     <section>
       <h2 className="text-xl font-bold mb-4">👥 Kelola Data Karyawan</h2>
@@ -146,10 +179,15 @@ export default function KaryawanManager() {
             </thead>
             <tbody>
               {karyawanData.data?.map((k) => (
-                <tr
-                  key={k.id_akun}
-                  className="hover:bg-indigo-50 transition-colors duration-150"
-                >
+                <tr key={k.id_akun} className={k.status_akun === 'NONAKTIF' ? "bg-gray-200 text-gray-500" : "hover:bg-indigo-50"}>
+                  <td className="border p-2">
+                    {k.username}
+                    {k.status_akun === 'NONAKTIF' && (
+                      <span className="ml-2 text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded-full">
+                        Non-Aktif
+                      </span>
+                    )}
+                  </td>
                   <td className="border p-2">{k.username}</td>
                   <td className="border p-2">{k.email}</td>
                   <td className="border p-2">{k.id_jabatan}</td>
@@ -160,19 +198,37 @@ export default function KaryawanManager() {
                   <td className="border p-2 text-xs text-gray-600">
                     {k.shift ? renderHariKerja(k.shift) : "-"}
                   </td>
-                  <td className="border p-2 space-x-2 text-center">
-                    <button
-                      onClick={() => handleEditKaryawan(k)}
-                      className="bg-yellow-400 px-3 py-1 rounded text-white hover:bg-yellow-500 active:scale-95 transition-all"
-                    >
-                      ✏️ Edit
-                    </button>
-                    <button
-                      onClick={() => handleDeleteKaryawan(k.id_akun)}
-                      className="bg-red-500 px-3 py-1 rounded text-white hover:bg-red-600 active:scale-95 transition-all"
-                    >
-                      🗑 Hapus
-                    </button>
+                  {/* Bagian Kolom Aksi di dalam .map */}
+                  <td className="border p-2 text-center">
+                    <div className="flex items-center justify-center gap-2">
+                      {/* Tombol Edit */}
+                      <button
+                        onClick={() => handleEditKaryawan(k)}
+                        className="bg-yellow-400 px-3 py-1 rounded text-white hover:bg-yellow-500 transition-all text-xs"
+                        title="Edit Data"
+                      >
+                        ✏️ Edit
+                      </button>
+
+                      {/* Logic Tombol Non-aktifkan / Aktifkan */}
+                      {k.status_akun !== 'NONAKTIF' ? (
+                        <button
+                          onClick={() => handleDeleteKaryawan(k.id_akun)}
+                          className="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600 transition-all text-xs"
+                          title="Non-aktifkan Akun"
+                        >
+                          🛑 Non-aktifkan
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => handleRestoreKaryawan(k.id_akun)}
+                          className="bg-green-500 text-white px-3 py-1 rounded hover:bg-green-600 transition-all text-xs"
+                          title="Aktifkan Kembali"
+                        >
+                          ✅ Aktifkan
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -247,27 +303,27 @@ export default function KaryawanManager() {
                 placeholder="Alamat"
                 className="w-full border p-2 rounded"
               />
-              
+
               {/* ✅ UPDATE DROPDOWN SHIFT */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Pilih Shift Kerja</label>
                 <select
-                    name="id_shift"
-                    value={selectedKaryawan.id_shift || ""}
-                    onChange={(e) =>
-                        setSelectedKaryawan({ ...selectedKaryawan, id_shift: e.target.value })
-                    }   
-                    className="border p-2 rounded w-full text-sm"
+                  name="id_shift"
+                  value={selectedKaryawan.id_shift || ""}
+                  onChange={(e) =>
+                    setSelectedKaryawan({ ...selectedKaryawan, id_shift: e.target.value })
+                  }
+                  className="border p-2 rounded w-full text-sm"
                 >
-                    <option value="">-- Pilih Shift --</option>
-                    {shiftList.map((shift) => (
+                  <option value="">-- Pilih Shift --</option>
+                  {shiftList.map((shift) => (
                     <option key={shift.id_shift} value={shift.id_shift}>
-                        {shift.nama_shift} ({shift.jam_masuk}-{shift.jam_pulang}) — {renderHariKerja(shift)}
+                      {shift.nama_shift} ({shift.jam_masuk}-{shift.jam_pulang}) — {renderHariKerja(shift)}
                     </option>
-                    ))}
+                  ))}
                 </select>
                 <p className="text-xs text-gray-500 mt-1">
-                    *Format: Nama (Jam) — Hari Kerja
+                  *Format: Nama (Jam) — Hari Kerja
                 </p>
               </div>
 

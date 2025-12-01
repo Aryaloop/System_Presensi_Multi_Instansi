@@ -7,7 +7,7 @@ import dotenv from "dotenv";
 import crypto from "crypto";
 import path from "path";
 import { sendEmail } from "./emailService.js";
-
+import { logActivity } from "./utils/logger.js";
 dotenv.config({ path: path.resolve("../../.env") });
 const router = express.Router();
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
@@ -48,8 +48,21 @@ router.post("/", async (req, res) => {
       },
     ]);
 
+
+
     if (insertError) throw insertError;
 
+    // TAMBAHAN LOG
+    // Kita belum punya 'req.user' karena user belum login, jadi id_akun bisa diambil dari variabel UUID
+    // id_perusahaan diambil dari input user
+    await logActivity({
+      req: req,
+      id_akun: null, // User belum login, bisa null atau isi UUID baru jika ingin dilacak
+      id_perusahaan: id_perusahaan,
+      action: "REGISTER_USER",
+      target_table: "akun",
+      details: { username, email, msg: "User mendaftar mandiri" }
+    });
     // 📧 Kirim email verifikasi
     const verifyLink = `${process.env.FRONTEND_URL}/verify/${tokenVerifikasi}`;
     const htmlContent = `

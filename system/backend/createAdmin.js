@@ -5,6 +5,7 @@ import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import { sendEmail } from "./emailService.js";
 import path from "path";
+import { logActivity } from "./utils/logger.js";
 dotenv.config({ path: path.resolve("../../.env") });
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
 
@@ -49,6 +50,21 @@ export class CreateAdminController {
           },
         ])
         .select();
+      //Log Activity
+      // Asumsi: Super Admin sudah login, jadi req.user ada (dari middleware verifyToken)
+      await logActivity({
+        req: req,
+        id_akun: req.user.id_akun, // ID Super Admin yang melakukan aksi
+        id_perusahaan: id_perusahaan, // Perusahaan target admin baru
+        action: "CREATE_ADMIN",
+        target_table: "akun",
+        target_id: email, // Atau UUID admin baru jika ada
+        details: {
+          new_admin_username: username,
+          new_admin_email: email,
+          msg: "Super Admin membuat Admin baru"
+        }
+      });
 
       if (insertError) throw insertError;
 

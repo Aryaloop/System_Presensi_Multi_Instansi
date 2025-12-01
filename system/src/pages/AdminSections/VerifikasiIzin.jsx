@@ -22,13 +22,22 @@ export default function VerifikasiIzin() {
     fetchIzinList();
   }, [izinPage]);
 
-  const handleVerifikasiIzin = async (id_izin, status) => {
-    await axios.patch(`/api/admin/izin/${id_izin}`, {
-      status_persetujuan: status,
-      id_verifikator: localStorage.getItem("id_akun"),
-    });
-    Swal.fire("✅ Berhasil", "Izin diperbarui", "success");
-    fetchIzinList();
+  const handleUpdateStatus = async (id_izin, newStatus) => {
+    try {
+      // PERBAIKAN DISINI: Tambahkan "/verifikasi" di akhir URL
+      await axios.patch(`/api/admin/izin/${id_izin}/verifikasi`, {
+        status_persetujuan: newStatus,
+        keterangan_verifikator: "Diupdate oleh Admin via Dashboard" // Opsional
+      });
+
+      // Refresh data setelah update
+      Swal.fire("Berhasil", "Status izin diperbarui", "success");
+      queryClient.invalidateQueries(["admin-izin"]);
+
+    } catch (err) {
+      console.error(err);
+      Swal.fire("Gagal", "Terjadi kesalahan sistem", "error");
+    }
   };
   return (
     <section>
@@ -58,7 +67,7 @@ export default function VerifikasiIzin() {
                   <select
                     value={i.status_persetujuan}
                     onChange={async (e) => {
-                      await axios.patch(`/api/admin/izin/${i.id_izin}`, {
+                      await axios.patch(`/api/admin/izin/${i.id_izin}/verifikasi`, {
                         status_persetujuan: e.target.value,
                         id_verifikator: localStorage.getItem("id_akun"),
                       });

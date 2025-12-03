@@ -1,14 +1,8 @@
 import express from "express";
-import { createClient } from "@supabase/supabase-js";
+import { supabase } from "../config/db.js"; // IMPORT DARI DB.JS
 import { getDistance } from "geolib";
-import dotenv from "dotenv";
-import path from "path";
-
-// Sesuaikan path .env
-dotenv.config({ path: path.resolve("../../../.env") });
 
 const router = express.Router();
-const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
 
 // GET Lokasi & Shift (Updated: Mengambil kolom boolean hari)
 router.get("/api/user/lokasi-shift", async (req, res) => {
@@ -41,7 +35,7 @@ router.get("/api/user/lokasi-shift", async (req, res) => {
     });
 
   } catch (err) {
-    console.error("❌ Error lokasi-shift:", err);
+    console.error(" Error lokasi-shift:", err);
     res.status(500).json({ success: false, message: "Terjadi kesalahan server." });
   }
 });
@@ -64,7 +58,7 @@ router.post("/api/user/absen", async (req, res) => {
       });
 
       if (error) {
-        console.error("❌ RPC Error:", error);
+        console.error(" RPC Error:", error);
         return res.status(500).json({ success: false, message: "Terjadi kesalahan sistem." });
       }
 
@@ -84,7 +78,7 @@ router.post("/api/user/absen", async (req, res) => {
       });
 
       if (error) {
-        console.error("❌ RPC Error:", error);
+        console.error(" RPC Error:", error);
         return res.status(500).json({ success: false, message: "Terjadi kesalahan sistem." });
       }
 
@@ -95,7 +89,7 @@ router.post("/api/user/absen", async (req, res) => {
       return res.json({ success: true, message: data.message });
     }
   } catch (error) {
-    console.error("❌ Error absen:", error);
+    console.error(" Error absen:", error);
     res.status(500).json({ success: false, message: "Terjadi kesalahan server." });
   }
 });

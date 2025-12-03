@@ -1,12 +1,7 @@
 import express from "express";
-import { createClient } from "@supabase/supabase-js";
-import dotenv from "dotenv";
-import path from "path";
-
-dotenv.config({ path: path.resolve("../../../.env") });
+import { supabase } from "../config/db.js"; // IMPORT DARI DB.JS
 
 const router = express.Router();
-const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
 
 // POST: Ajukan Izin / WFH
 router.post("/api/user/izin", async (req, res) => {
@@ -47,12 +42,12 @@ router.post("/api/user/izin", async (req, res) => {
     res.json({ success: true, message: "Pengajuan berhasil dikirim." });
 
   } catch (error) {
-    console.error("❌ Error ajukan izin:", error);
+    console.error(" Error ajukan izin:", error);
     res.status(500).json({ success: false, message: "Gagal mengirim pengajuan." });
   }
 });
 
-// 📊 GET: Summary Izin (Untuk Dashboard/Statistik)
+//  GET: Summary Izin (Untuk Dashboard/Statistik)
 router.get("/api/user/izin/summary", async (req, res) => {
   try {
     const id_akun = req.user.id_akun;

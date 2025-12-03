@@ -1,14 +1,10 @@
 import express from "express";
-import { createClient } from "@supabase/supabase-js";
-import dotenv from "dotenv";
-import path from "path";
+import { supabase } from "../config/db.js"; // IMPORT DARI DB.JS 
 
-dotenv.config({ path: path.resolve("../../../.env") });
 
 const router = express.Router();
-const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
 
-// 📅 GET: Data kehadiran (RPC Call untuk Kalender)
+//  GET: Data kehadiran (RPC Call untuk Kalender)
 router.get("/api/user/kehadiran", async (req, res) => {
   try {
     const id_akun = req.user.id_akun;
@@ -26,14 +22,14 @@ router.get("/api/user/kehadiran", async (req, res) => {
     });
 
     if (error) {
-      console.error("❌ RPC Error:", error);
+      console.error(" RPC Error:", error);
       return res.status(500).json({ success: false, message: "Gagal memuat data kalender." });
     }
 
     res.json({ success: true, count: data?.length || 0, data: data });
 
   } catch (err) {
-    console.error("❌ Error RPC:", err);
+    console.error(" Error RPC:", err);
     res.status(500).json({ success: false, message: "Terjadi kesalahan server." });
   }
 });

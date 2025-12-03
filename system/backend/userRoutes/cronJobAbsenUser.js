@@ -1,13 +1,10 @@
 import cron from "node-cron";
-import { createClient } from "@supabase/supabase-js";
-import dotenv from "dotenv";
-import path from "path";
+import { supabaseAdmin } from "../config/db.js";
 
-// Sesuaikan path ini dengan struktur folder projectmu yang sebenarnya
-dotenv.config({ path: path.resolve("../../../.env") });
 
-const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
-
+if (!supabaseAdmin) {
+  console.error(" CRITICAL: Service Key tidak ditemukan. Cron Job Absensi tidak akan jalan!");
+}
 // ==============================================================================
 // HELPER: WAKTU INDONESIA (WIB)
 // ==============================================================================
@@ -42,14 +39,14 @@ function getTodayInfo() {
 // (Diexport agar bisa dipanggil manual saat server start)
 // ==============================================================================
 export const initDailyAttendance = async () => {
-  console.log("🚀 [INIT] Memulai pengecekan jadwal kerja hari ini...");
+  console.log(" [INIT] Memulai pengecekan jadwal kerja hari ini...");
 
   try {
     const { columnName, todayDate } = getTodayInfo();
-    console.log(`📅 Hari ini (WIB): ${todayDate} | Cek kolom: ${columnName}`);
+    console.log(` Hari ini (WIB): ${todayDate} | Cek kolom: ${columnName}`);
 
     // 1. Ambil karyawan yang punya shift aktif & jadwal hari ini
-    const { data: karyawans, error } = await supabase
+    const { data: karyawans, error } = await supabaseAdmin
       .from("akun")
       .select(`
         id_akun, 
@@ -85,7 +82,7 @@ export const initDailyAttendance = async () => {
     // 3. Eksekusi Insert Massal
     if (insertPayload.length > 0) {
       // GUNAKAN INSERT BIASA (Bukan Upsert)
-      const { data, error: insertError } = await supabase
+      const { data, error: insertError } = await supabaseAdmin
         .from("kehadiran")
         .insert(insertPayload)
         .select();
@@ -94,20 +91,20 @@ export const initDailyAttendance = async () => {
         // Jika errornya "23505" (Duplicate Key), itu BUKAN Error.
         // Itu artinya sistem pencegah duplikat bekerja dengan baik.
         if (insertError.code === '23505') {
-          console.log("ℹ️ [INFO] Data kehadiran hari ini sudah ada (Aman, tidak double).");
+          console.log("ℹ [INFO] Data kehadiran hari ini sudah ada (Aman, tidak double).");
         } else {
           // Error lain (koneksi putus, dll) baru kita anggap masalah
-          console.error("🔥 ERROR INSERT:", insertError.message);
+          console.error(" ERROR INSERT:", insertError.message);
         }
       } else {
-        console.log(`✅ [INIT] Berhasil generate ${data?.length || 0} data ALFA baru.`);
+        console.log(` [INIT] Berhasil generate ${data?.length || 0} data ALFA baru.`);
       }
     } else {
-      console.log("ℹ️ Tidak ada karyawan yang memiliki jadwal shift hari ini.");
+      console.log("ℹ Tidak ada karyawan yang memiliki jadwal shift hari ini.");
     }
 
   } catch (err) {
-    console.error("❌ [INIT ERROR]", err);
+    console.error(" [INIT ERROR]", err);
   }
 };
 
@@ -115,7 +112,7 @@ export const initDailyAttendance = async () => {
 // JOB 1: JADWAL OTOMATIS (Setiap Pagi 00:05 WIB)
 // ==============================================================================
 cron.schedule("5 0 * * *", async () => {
-  console.log("⏰ [CRON] Menjalankan jadwal otomatis pagi (WIB)...");
+  console.log(" [CRON] Menjalankan jadwal otomatis pagi (WIB)...");
   await initDailyAttendance();
 }, {
   scheduled: true,
@@ -126,7 +123,7 @@ cron.schedule("5 0 * * *", async () => {
 // JOB 2: FINALISASI ABSEN (Setiap Malam 23:55 WIB)
 // ==============================================================================
 cron.schedule("55 23 * * *", async () => {
-  console.log("⏰ [CRON] Mulai finalisasi status akhir hari (WIB)...");
+  console.log(" [CRON] Mulai finalisasi status akhir hari (WIB)...");
 
   try {
     const { todayDate } = getTodayInfo();
@@ -134,7 +131,7 @@ cron.schedule("55 23 * * *", async () => {
 
     // Ambil data kehadiran hari ini (WIB) yang statusnya masih gantung
     // (Bukan IZIN/CUTI/WFH, tapi yang statusnya 'HADIR' atau 'TERLAMBAT' atau 'ALFA')
-    const { data: absens, error } = await supabase
+    const { data: absens, error } = await supabaseAdmin
       .from("kehadiran")
       .select("id_kehadiran, status, jam_masuk, jam_pulang")
       .gte("created_at", `${today}T00:00:00`) // Filter kasarn berdasarkan string tanggal lokal -> UTC conversion by Supabase logic usually works if format is standard ISO
@@ -159,12 +156,12 @@ cron.schedule("55 23 * * *", async () => {
       if (absen.jam_masuk && !absen.jam_pulang) {
         newStatus = "ALFA";
         needUpdate = true;
-        console.log(`⚠️ ID ${absen.id_kehadiran}: Masuk tapi Lupa pulang -> Set ALFA`);
+        console.log(` ID ${absen.id_kehadiran}: Masuk tapi Lupa pulang -> Set ALFA`);
       }
 
       // Eksekusi Update jika perlu
       if (needUpdate) {
-        await supabase
+        await supabaseAdmin
           .from("kehadiran")
           .update({
             status: newStatus
@@ -173,10 +170,10 @@ cron.schedule("55 23 * * *", async () => {
         updateCount++;
       }
     }
-    console.log(`✅ [CRON] Finalisasi selesai. ${updateCount} data diperbarui.`);
+    console.log(` [CRON] Finalisasi selesai. ${updateCount} data diperbarui.`);
 
   } catch (err) {
-    console.error("❌ [CRON ERROR] Finalisasi gagal:", err);
+    console.error(" [CRON ERROR] Finalisasi gagal:", err);
   }
 }, {
   scheduled: true,

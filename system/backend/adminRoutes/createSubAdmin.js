@@ -1,17 +1,11 @@
 import express from "express";
-import { createClient } from "@supabase/supabase-js";
-import dotenv from "dotenv";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
-import path from "path";
-// Pastikan path emailService mundur 2 folder (routes -> adminRoutes -> root -> emailService)
-import { sendEmail } from "../emailService.js"; 
+import { supabase } from "../config/db.js"; // IMPORT DARI DB.JS
 
-// Konfigurasi Environment (Mundur 3 folder ke root untuk cari .env)
-dotenv.config({ path: path.resolve("../../../.env") });
+import { sendEmail } from "../utils/emailService.js"; 
 
 const router = express.Router();
-const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
 
 // ==========================================
 // POST: Create Sub Admin
@@ -91,7 +85,7 @@ router.post("/api/admin/create-subadmin", async (req, res) => {
     if (!emailSent) {
       // Opsional: Anda bisa menghapus akun yang baru dibuat jika email gagal, 
       // atau biarkan saja dan minta admin reset password manual.
-      console.warn("⚠️ Email gagal terkirim ke Sub Admin baru");
+      console.warn(" Email gagal terkirim ke Sub Admin baru");
     }
 
     return res.json({
@@ -99,7 +93,7 @@ router.post("/api/admin/create-subadmin", async (req, res) => {
     });
 
   } catch (err) {
-    console.error("❌ Create SubAdmin Error:", err);
+    console.error(" Create SubAdmin Error:", err);
     return res.status(500).json({ 
       message: err.message || "Gagal membuat sub admin." 
     });

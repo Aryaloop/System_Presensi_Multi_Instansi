@@ -1,0 +1,1 @@
+import{j as s}from"./index-CMRaJyvN.js";import{S as r}from"./StatCards-DzRjogyV.js";import{C as a}from"./CardAbsenGPS-BO7dJ-Ng.js";function m(){return s.jsxs("div",{className:"space-y-6",children:[s.jsx(r,{}),s.jsx(a,{})]})}export{m as default};

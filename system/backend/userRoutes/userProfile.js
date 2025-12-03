@@ -1,12 +1,7 @@
 import express from "express";
-import { createClient } from "@supabase/supabase-js";
-import dotenv from "dotenv";
-import path from "path";
-
-dotenv.config({ path: path.resolve("../../../.env") });
+import { supabase } from "../config/db.js"; // IMPORT DARI DB.JS
 
 const router = express.Router();
-const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
 
 // 👤 GET: Profil User
 router.get("/api/user/profile", async (req, res) => {
@@ -21,7 +16,7 @@ router.get("/api/user/profile", async (req, res) => {
     if (error) throw error;
     res.json({ data }); // Bungkus dalam 'data' agar konsisten
   } catch (err) {
-    console.error("❌ Error ambil profil:", err);
+    console.error(" Error ambil profil:", err);
     res.status(500).json({ message: "Gagal mengambil profil pengguna" });
   }
 });

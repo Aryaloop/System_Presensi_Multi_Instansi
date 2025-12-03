@@ -1,12 +1,7 @@
 import express from "express";
-import { createClient } from "@supabase/supabase-js";
-import dotenv from "dotenv";
-import path from "path";
-
-dotenv.config({ path: path.resolve("../../../.env") });
+import { supabase } from "../config/db.js"; // IMPORT DARI DB.JS
 
 const router = express.Router();
-const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
 
 // ====================================================================
 // GET: Kehadiran (Pagination + Search UID + Sort Terbaru)
@@ -92,7 +87,7 @@ router.get("/api/admin/kehadiran", async (req, res) => {
     });
 
   } catch (err) {
-    console.error("❌ Error fetch kehadiran:", err);
+    console.error(" Error fetch kehadiran:", err);
     res.status(500).json({ message: "Gagal memuat data kehadiran." });
   }
 });
@@ -119,10 +114,10 @@ router.patch("/api/admin/kehadiran/:id_kehadiran", async (req, res) => {
 
     if (error) throw error;
 
-    res.json({ success: true, message: "✅ Data kehadiran berhasil dikoreksi.", data });
+    res.json({ success: true, message: " Data kehadiran berhasil dikoreksi.", data });
 
   } catch (err) {
-    console.error("❌ Error update:", err);
+    console.error(" Error update:", err);
     res.status(500).json({ message: "Gagal mengupdate data." });
   }
 });

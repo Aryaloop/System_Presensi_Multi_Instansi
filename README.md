@@ -10,24 +10,51 @@
 
 
 
-## 📂 Struktur Project (Monorepo)
+## 📂 Struktur Folder (Terbaru)
+Struktur ini mencerminkan arsitektur MVC (Model-View-Controller) yang telah diterapkan untuk memisahkan logika bisnis, routing, dan utilitas.
 
 Project ini memiliki dua `package.json` terpisah karena Frontend dan Backend dipisahkan dalam folder berbeda.
 
 ````
-root-project/
-├── .env                  <-- File Environment Variable (Simpan di sini)
-├── frontend/             <-- Aplikasi Client (React + Vite)
-│   ├── src/
-│   ├── public/
+SYSTEM/
+├── .env                        ← Konfigurasi Environment (Supabase, Email, JWT)
+│
+├── backend/                    ← Server Express & API
+│   ├── config/
+│   │   └── db.js               ← Koneksi Database & Helper
+│   ├── controllers/            ← Logika Bisnis Utama
+│   │   ├── authController.js   ← Login, Register, Verify, Forgot Pass
+│   │   └── adminManagementController.js ← CRUD Admin (SuperAdmin Only)
+│   ├── middleware/             ← Keamanan & Validasi
+│   │   ├── authMiddleware.js   ← Cek Token & Role
+│   │   └── limiter.js          ← Rate Limiter (Anti Spam)
+│   ├── routes/                 ← Definisi Endpoint API
+│   │   ├── authRoutes.js       ← /api/auth/*
+│   │   ├── adminRoutes.js      ← /api/admin/*
+│   │   ├── superAdminRoutes.js ← /api/superadmin/*
+│   │   └── userRoutes.js       ← /api/user/*
+│   ├── utils/                  ← Fungsi Pembantu
+│   │   ├── emailService.js     ← Kirim Email via Nodemailer
+│   │   ├── logger.js           ← Pencatat Aktivitas Sistem
+│   │   └── scheduler.js        ← Cron Job (Hapus akun sampah otomatis)
+│   ├── index.js                ← Entry Point Server
 │   └── package.json
 │
-└── system/
-    └── backend/          <-- Aplikasi Server (Express + Node.js)
-        ├── config/
-        ├── controllers/
-        ├── routes/
-        └── package.json
+└── frontend/                   ← Client Side React + Vite
+    ├── index.html
+    ├── vite.config.js
+    ├── src/
+    │   ├── assets/             ← Gambar & Icon
+    │   ├── pages/              ← Halaman Utama
+    │   │   ├── Login.jsx
+    │   │   ├── Register.jsx
+    │   │   ├── Verify.jsx         ← Halaman Sukses Verifikasi
+    │   │   ├── WaitingVerify.jsx  ← Halaman Tunggu & Countdown
+    │   │   ├── ForgotPassword.jsx
+    │   │   └── dashboards/        ← Dashboard per Role
+    │   ├── App.jsx             ← Routing Utama
+    │   └── main.jsx
+    └── package.json
 ````
 
 -----
@@ -56,6 +83,7 @@ root-project/
       - `bcryptjs`: Hashing password.
       - `cookie-parser`: Penyimpanan token aman (HttpOnly).
       - `cors`: Keamanan akses resource.
+      - `express-rate-limit`: Limit .
   - **Fitur Utama:**
       - `nodemailer`: Layanan pengiriman email (Reset Password/Notifikasi).
       - Modular Routing (Pemisahan logic User, Admin, SuperAdmin).
@@ -99,6 +127,17 @@ Sistem menjalankan tugas latar belakang otomatis untuk menjaga integritas data a
 2.  **Finalisasi Akhir Hari (23:55 WIB):**
     - Mengecek kelengkapan absen.
     - Jika karyawan sudah Absen Masuk tapi **Lupa Absen Pulang**, status otomatis diubah menjadi **"ALFA"** (Sesuai kepatuhan audit).
+3. **Auto Cleanup**
+    - Akun yang tidak diverifikasi dalam **3 menit** otomatis dihapus oleh sistem (Cron Job).
+
+### 🔐 5. Keamanan Ekstra
+  
+Keamanan system tambahan
+
+1.  **Limit Login**
+    - Rate Limiting: Mencegah brute-force login.
+2. **Log Activity**
+    - Setiap tindakan penting (Login, Create User, Hapus Data) tercatat di tabel activity_logs.
 
 -----
 

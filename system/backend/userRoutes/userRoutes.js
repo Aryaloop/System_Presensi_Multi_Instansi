@@ -8,7 +8,7 @@ import kehadiranRoutes from "./userKehadiran.js";
 import profileRoutes from "./userProfile.js";
 
 // Import Middleware (Mundur satu folder)
-import { verifyToken } from "../authMiddleware.js";
+import { verifyToken } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 router.use(compression());

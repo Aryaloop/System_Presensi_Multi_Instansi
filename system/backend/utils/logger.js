@@ -1,17 +1,4 @@
-// backend/utils/logger.js
-import { createClient } from "@supabase/supabase-js";
-import dotenv from "dotenv";
-import path from "path";
-
-// Pastikan load env
-dotenv.config({ path: path.resolve("../../.env") });
-
-// 🔥 PENTING: Gunakan SERVICE KEY, bukan Anon Key
-// Jika SUPABASE_SERVICE_KEY tidak ada, fallback ke SUPABASE_KEY (tapi mungkin kena RLS)
-const supabaseAdmin = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_KEY 
-);
+import { supabaseAdmin } from "../config/db.js";
 
 export const logActivity = async ({
   id_akun,
@@ -38,10 +25,10 @@ export const logActivity = async ({
     });
 
     if (error) {
-       console.error("⚠️ Gagal simpan log activity:", error.message);
+      console.error(" Gagal simpan log activity:", error.message);
     }
 
   } catch (error) {
-    console.error("❌ Error system logger:", error);
+    console.error(" Error system logger:", error);
   }
 };

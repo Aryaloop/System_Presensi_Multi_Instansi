@@ -29,7 +29,6 @@ export default function AdminManager() {
   const [formData, setFormData] = useState({
     username: "",
     email: "",
-    password: "",
     id_perusahaan: ""
   });
 
@@ -66,7 +65,7 @@ export default function AdminManager() {
       await axios.post("/api/superadmin/create-admin", formData);
       Swal.fire("Berhasil", "Akun Admin baru berhasil dibuat", "success");
       setShowModal(false);
-      setFormData({ username: "", email: "", password: "", id_perusahaan: "" });
+      setFormData({ username: "", email: "", id_perusahaan: "" });
       queryClient.invalidateQueries(["adminList"]);
     } catch (err) {
       Swal.fire("Gagal", err.response?.data?.message || "Terjadi kesalahan", "error");
@@ -216,10 +215,6 @@ export default function AdminManager() {
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
                 <input required type="email" name="email" value={formData.email} onChange={handleChange} className="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-indigo-500" placeholder="email@contoh.com" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
-                <input required type="password" name="password" value={formData.password} onChange={handleChange} className="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-indigo-500" placeholder="********" />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">ID Perusahaan (Manual)</label>

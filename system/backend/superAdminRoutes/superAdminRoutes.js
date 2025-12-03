@@ -1,6 +1,6 @@
 // backend/superAdminRoutes/index.js
 import express from "express";
-import { verifyToken, verifyAdmin } from "../authMiddleware.js";
+import { verifyToken, verifyAdmin } from "../middleware/authMiddleware.js";
 
 // Import Controller yang sudah dipisah
 import * as PerusahaanCtrl from "./controllers/perusahaanController.js";

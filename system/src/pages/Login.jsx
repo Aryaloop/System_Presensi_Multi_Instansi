@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react"; // 1. Tambah useEffect
+import React, { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import axios from "axios";
 import Swal from "sweetalert2";
@@ -10,12 +10,64 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const [remember, setRemember] = useState(false);
 
-  // 2. Ubah Judul Tab
   useEffect(() => {
     document.title = "Masuk - PresensiKu";
   }, []);
 
   const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
+
+  // --- LOGIC MODAL Syarat & Ketentuan (BARU) ---
+  const showTermsModal = (e) => {
+    e.preventDefault(); // Mencegah link reload halaman
+
+    Swal.fire({
+      title: '<strong>Syarat & Kebijakan Privasi</strong>',
+      icon: 'info',
+      html: `
+      <div style="text-align: left; font-size: 0.9em; max-height: 320px; overflow-y: auto; line-height:1.5">
+
+        <h3 style="font-weight:bold; margin-top:10px">1. Pengumpulan Data</h3>
+        <p>Untuk mendukung operasional aplikasi, sistem menghimpun data berikut:</p>
+        <ul style="list-style-type: disc; margin-left: 20px;">
+          <li><b>Lokasi (GPS):</b> Hanya diakses saat Absen Masuk/Pulang untuk memastikan Anda berada dalam radius yang ditentukan perusahaan.</li>
+          <li><b>Informasi Perangkat:</b> IP Address, User Agent, dan data teknis lain disimpan untuk keamanan dan audit aktivitas.</li>
+          <li><b>Cookies & Session:</b> Digunakan untuk mempertahankan sesi login dan kenyamanan penggunaan.</li>
+          <li><b>Nomor Telepon:</b> Untuk verifikasi identitas, notifikasi, dan kontak terkait akun.</li>
+          <li><b>Email:</b> Untuk autentikasi, pemberitahuan, dan pemulihan akun.</li>
+          <li><b>Alamat Perusahaan:</b> Digunakan sebagai dasar penentuan radius dan kebutuhan administrasi internal.</li>
+        </ul>
+
+        <h3 style="font-weight:bold; margin-top:15px">2. Penggunaan Data</h3>
+        <p>Data yang dikumpulkan dipergunakan untuk:</p>
+        <ul style="list-style-type: disc; margin-left: 20px;">
+          <li>Verifikasi absensi berdasarkan lokasi aktual.</li>
+          <li>Keamanan sistem dan pencegahan penyalahgunaan.</li>
+          <li>Administrasi internal serta keperluan operasional lainnya.</li>
+          <li>Pengiriman informasi penting terkait penggunaan aplikasi.</li>
+        </ul>
+        <p><b>Data Anda tidak akan dibagikan kepada pihak ketiga</b> tanpa dasar hukum atau persetujuan resmi.</p>
+
+        <h3 style="font-weight:bold; margin-top:15px">3. Larangan Pengguna</h3>
+        <p>Pengguna dilarang melakukan:</p>
+        <ul style="list-style-type: disc; margin-left: 20px;">
+          <li>Manipulasi lokasi (Fake GPS) atau tindakan lain yang memalsukan data absensi.</li>
+          <li>Pemalsuan identitas atau penyalahgunaan akun.</li>
+          <li>Upaya merusak sistem, mencuri data, atau tindakan lain yang mengganggu layanan.</li>
+        </ul>
+
+        <h3 style="font-weight:bold; margin-top:15px">4. Persetujuan Pengguna</h3>
+        <p>Dengan melanjutkan penggunaan aplikasi ini, Anda menyatakan telah membaca, memahami, dan menyetujui seluruh syarat serta kebijakan privasi yang berlaku.</p>
+
+      </div>
+    `,
+      showCloseButton: true,
+      focusConfirm: false,
+      confirmButtonText: 'Saya Mengerti & Setuju',
+      confirmButtonColor: '#4f46e5',
+    });
+  };
+
+  // ---------------------------------------------
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -69,7 +121,7 @@ export default function Login() {
   return (
     <div className="min-h-screen w-full bg-gradient-to-br from-blue-500 via-indigo-600 to-indigo-700 flex items-stretch justify-center">
       <div className="w-full max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-0 lg:gap-10 p-4 lg:p-6">
-        
+
         {/* LEFT: Card Login */}
         <div className="flex items-center justify-center order-2 lg:order-1">
           <div className="bg-white/95 backdrop-blur shadow-xl rounded-2xl w-full max-w-md p-6 sm:p-8">
@@ -94,7 +146,7 @@ export default function Login() {
                 <div className="relative mt-1">
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
-                        <path d="M1.5 6.75A2.25 2.25 0 0 1 3.75 4.5h16.5a2.25 2.25 0 0 1 2.25 2.25v10.5A2.25 2.25 0 0 1 20.25 19.5H3.75A2.25 2.25 0 0 1 1.5 17.25V6.75Zm2.04-.75 8.21 6.157a.75.75 0 0 0 .9 0L20.86 6H3.54Z" />
+                      <path d="M1.5 6.75A2.25 2.25 0 0 1 3.75 4.5h16.5a2.25 2.25 0 0 1 2.25 2.25v10.5A2.25 2.25 0 0 1 20.25 19.5H3.75A2.25 2.25 0 0 1 1.5 17.25V6.75Zm2.04-.75 8.21 6.157a.75.75 0 0 0 .9 0L20.86 6H3.54Z" />
                     </svg>
                   </span>
                   <input
@@ -116,7 +168,7 @@ export default function Login() {
                 <div className="relative mt-1">
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
-                        <path d="M12 1.5a5.25 5.25 0 0 0-5.25 5.25V9H6a2.25 2.25 0 0 0-2.25 2.25v7.5A2.25 2.25 0 0 0 6 21h12a2.25 2.25 0 0 0 2.25-2.25v-7.5A2.25 2.25 0 0 0 18 9h-.75V6.75A5.25 5.25 0 0 0 12 1.5Zm-3.75 7.5V6.75a3.75 3.75 0 0 1 7.5 0V9H8.25Z" />
+                      <path d="M12 1.5a5.25 5.25 0 0 0-5.25 5.25V9H6a2.25 2.25 0 0 0-2.25 2.25v7.5A2.25 2.25 0 0 0 6 21h12a2.25 2.25 0 0 0 2.25-2.25v-7.5A2.25 2.25 0 0 0 18 9h-.75V6.75A5.25 5.25 0 0 0 12 1.5Zm-3.75 7.5V6.75a3.75 3.75 0 0 1 7.5 0V9H8.25Z" />
                     </svg>
                   </span>
                   <input
@@ -134,11 +186,11 @@ export default function Login() {
 
               <div className="flex items-center justify-between text-sm">
                 <label className="inline-flex items-center gap-2 select-none">
-                  <input 
-                    type="checkbox" 
-                    className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" 
-                    checked={remember} 
-                    onChange={(e) => setRemember(e.target.checked)} 
+                  <input
+                    type="checkbox"
+                    className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                    checked={remember}
+                    onChange={(e) => setRemember(e.target.checked)}
                   />
                   <span className="text-gray-600">Ingat saya</span>
                 </label>
@@ -154,6 +206,12 @@ export default function Login() {
               </button>
             </form>
 
+            {/* --- LINK SYARAT & KETENTUAN (BARU) --- */}
+            <p className="mt-4 text-xs text-center text-gray-500">
+              Dengan masuk, Anda menyetujui <button onClick={showTermsModal} className="text-indigo-600 underline hover:text-indigo-800">Syarat & Kebijakan Privasi</button> kami.
+            </p>
+            {/* --------------------------------------- */}
+
             <p className="text-center text-sm text-gray-600 mt-6">
               Belum punya akun?{" "}
               <Link to="/register" className="text-indigo-600 hover:underline font-medium">Daftar sekarang</Link>
@@ -161,14 +219,14 @@ export default function Login() {
           </div>
         </div>
 
-        {/* RIGHT: Marketing Panel */}
+        {/* RIGHT: Marketing Panel (TETAP SAMA) */}
         <div className="relative rounded-2xl overflow-hidden order-1 lg:order-2 min-h-[300px] lg:min-h-[unset]">
           <div className="absolute inset-0 bg-gradient-to-br from-indigo-600 via-indigo-700 to-blue-900" />
           <div className="relative h-full w-full flex items-center justify-center px-8 py-12">
             <div className="max-w-md text-white">
               <div className="w-12 h-12 rounded-2xl bg-indigo-500/30 border border-white/20 flex items-center justify-center">
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" className="w-6 h-6">
-                    <path strokeWidth="1.8" d="M7 3v2m10-2v2M5 7h14a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2Zm0 4h14" />
+                  <path strokeWidth="1.8" d="M7 3v2m10-2v2M5 7h14a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2Zm0 4h14" />
                 </svg>
               </div>
 
@@ -198,7 +256,7 @@ export default function Login() {
             </div>
           </div>
         </div>
-        
+
       </div>
     </div>
   );

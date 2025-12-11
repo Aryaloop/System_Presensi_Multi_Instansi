@@ -11,7 +11,7 @@ import Cookies from "js-cookie";
 const DashboardHome = lazy(() => import("./SuperAdminSections/DashboardHome"));
 const PerusahaanManager = lazy(() => import("./SuperAdminSections/PerusahaanManager"));
 const AdminManager = lazy(() => import("./SuperAdminSections/AdminManager"));
-
+const ActivityLogManager = lazy(() => import("./SuperAdminSections/ActivityLogManager"));
 export default function DashboardSuperAdmin() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -60,6 +60,7 @@ export default function DashboardSuperAdmin() {
         return <PerusahaanManager />;
       case "admin":
         return <AdminManager />;
+      case "logs": return <ActivityLogManager />; // <--- TAMBAHAN
       default:
         return <DashboardHome />;
     }
@@ -67,7 +68,7 @@ export default function DashboardSuperAdmin() {
 
   return (
     <div className="min-h-screen flex bg-gray-50 font-sans">
-      
+
       {/* ================= SIDEBAR (UI ORIGINAL) ================= */}
       <aside className="w-64 bg-white border-r shadow-sm flex flex-col fixed h-full z-10">
         {/* Header Sidebar */}
@@ -87,9 +88,8 @@ export default function DashboardSuperAdmin() {
           {/* Dashboard */}
           <button
             onClick={() => setPage("home")}
-            className={`w-full flex items-center gap-3 px-4 py-2 rounded-md transition ${
-              page === "home" ? "bg-indigo-100 text-indigo-600 font-medium" : "hover:bg-gray-100 text-gray-700"
-            }`}
+            className={`w-full flex items-center gap-3 px-4 py-2 rounded-md transition ${page === "home" ? "bg-indigo-100 text-indigo-600 font-medium" : "hover:bg-gray-100 text-gray-700"
+              }`}
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" d="M3 10.5L12 4l9 6.5V21a1 1 0 01-1 1h-5v-6H9v6H4a1 1 0 01-1-1V10.5z" />
@@ -100,9 +100,8 @@ export default function DashboardSuperAdmin() {
           {/* Perusahaan */}
           <button
             onClick={() => setPage("perusahaan")}
-            className={`w-full flex items-center gap-3 px-4 py-2 rounded-md transition ${
-              page === "perusahaan" ? "bg-indigo-100 text-indigo-600 font-medium" : "hover:bg-gray-100 text-gray-700"
-            }`}
+            className={`w-full flex items-center gap-3 px-4 py-2 rounded-md transition ${page === "perusahaan" ? "bg-indigo-100 text-indigo-600 font-medium" : "hover:bg-gray-100 text-gray-700"
+              }`}
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" d="M4 21h16M4 7h16M4 11h16M8 3h8v18" />
@@ -113,14 +112,24 @@ export default function DashboardSuperAdmin() {
           {/* Kelola Admin */}
           <button
             onClick={() => setPage("admin")}
-            className={`w-full flex items-center gap-3 px-4 py-2 rounded-md transition ${
-              page === "admin" ? "bg-indigo-100 text-indigo-600 font-medium" : "hover:bg-gray-100 text-gray-700"
-            }`}
+            className={`w-full flex items-center gap-3 px-4 py-2 rounded-md transition ${page === "admin" ? "bg-indigo-100 text-indigo-600 font-medium" : "hover:bg-gray-100 text-gray-700"
+              }`}
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a4 4 0 00-3-3.87M9 20H4v-2a4 4 0 013-3.87m6-7a4 4 0 110 8 4 4 0 010-8z" />
             </svg>
             Kelola Admin
+          </button>
+          <button
+            onClick={() => setPage("logs")}
+            className={`w-full flex items-center gap-3 px-4 py-2 rounded-md transition ${page === "logs" ? "bg-indigo-100 text-indigo-600 font-medium" : "hover:bg-gray-100 text-gray-700"
+              }`}
+          >
+            {/* Icon Log / List */}
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+            </svg>
+            Log Aktivitas
           </button>
         </nav>
 

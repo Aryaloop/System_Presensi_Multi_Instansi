@@ -114,7 +114,7 @@ export default function DashboardUser() {
                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
             </div>
             <div>
-              <p className="text-lg font-bold text-gray-800 tracking-tight">PresensiKu</p>
+              <p className="text-lg font-bold text-gray-800 tracking-tight">KitaPresensi</p>
               <p className="text-[11px] font-medium text-indigo-500 uppercase tracking-wider">Employee Panel</p>
             </div>
           </div>

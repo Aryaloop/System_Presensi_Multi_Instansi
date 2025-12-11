@@ -6,10 +6,11 @@ import cookieParser from "cookie-parser";
 import path from "path";
 import { fileURLToPath } from 'url';
 import morgan from "morgan";
+import helmet from "helmet";
 // Config
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-dotenv.config({ path: path.resolve(__dirname, "../.env") });
+dotenv.config({ path: path.resolve(__dirname, "../../.env") });
 
 // --- IMPORT BARU (RAPI) ---
 import authRoutes from "./routes/authRoutes.js"; // <--- INI PENGGANTINYA
@@ -22,8 +23,8 @@ import { authLimiter } from "./middleware/limiter.js"; // Limiter Log dari ip ya
 
 const app = express();
 const PORT = process.env.PORT || 3001;
-
 app.set('trust proxy', 1); 
+app.use(helmet());
 app.use(cors({ origin: 'http://localhost:3000', credentials: true }));
 app.use(cookieParser());
 app.use(express.json());

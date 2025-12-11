@@ -11,7 +11,7 @@ export default function ResetPassword() {
 
   // 2. Ubah Judul Tab
   useEffect(() => {
-    document.title = "Reset Password - PresensiKu";
+    document.title = "Reset Password - KitaPresensi";
   }, []);
 
   const handleSubmit = async (e) => {

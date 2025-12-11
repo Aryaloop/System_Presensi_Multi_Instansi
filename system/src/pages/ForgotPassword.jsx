@@ -10,7 +10,7 @@ export default function ForgotPassword() {
 
   // 2. Ubah Judul Tab
   useEffect(() => {
-    document.title = "Lupa Password - PresensiKu";
+    document.title = "Lupa Password - KitaPresensi";
   }, []);
 
   const handleSubmit = async (e) => {

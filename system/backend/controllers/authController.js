@@ -324,43 +324,39 @@ export class AuthController {
   }
 
   // =========================================================================
-  // 8. FORGOT PASSWORD (BEST PRACTICE VERSION)
+  // 8. FORGOT PASSWORD (REVISI: UX Friendly / Jujur)
   // =========================================================================
   static async forgotPassword(req, res) {
     try {
       const { email } = req.body;
 
+      if (!email) return res.status(400).json({ message: "Email wajib diisi" });
+
       // 1. Cari user berdasarkan email
-      // Kita hanya butuh ID-nya saja untuk update
       const { data: akun } = await supabase
         .from("akun")
-        .select("id_akun, email")
-        .ilike("email", email)
+        .select("id_akun, email, username")
+        .ilike("email", email) // Case insensitive
         .maybeSingle();
 
-      // 2. USER ENUMERATION PROTECTION (Penting!)
-      // Jika email tidak ketemu, jangan bilang "Email tidak ditemukan".
-      // Hacker bisa nebak-nebak email mana yang terdaftar.
-      // Berikan respon sukses palsu tapi dengan delay (biar seolah-olah memproses).
+      // 2. UX UPDATE: Return 404 jika email tidak ada
+      // Ini akan men-trigger blok 'catch' di Frontend (Alert Merah)
       if (!akun) {
-        await new Promise(resolve => setTimeout(resolve, 1500)); // Delay 1.5 detik
-        return res.json({ message: "Jika email terdaftar, tautan reset telah dikirim." });
+        return res.status(404).json({ message: "Email tidak terdaftar dalam sistem." });
       }
 
-      // 3. GENERATE TOKEN BARU (OVERWRITE)
-      // Tidak perlu cek token lama. Langsung timpa saja.
+      // 3. Generate Token Baru
       const resetToken = uuidv4();
 
       // 4. Update Database
       const { error } = await supabase
         .from("akun")
-        .update({ token_reset: resetToken }) // Token lama otomatis hilang tertimpa ini
+        .update({ token_reset: resetToken })
         .eq("id_akun", akun.id_akun);
 
       if (error) throw error;
 
       // 5. Log Aktivitas
-      // Log ini penting untuk audit trail jika ada spamming
       await logActivity({
         req: req,
         id_akun: akun.id_akun,
@@ -372,23 +368,20 @@ export class AuthController {
       // 6. Kirim Email
       const resetLink = `${process.env.FRONTEND_URL}/reset-password/${resetToken}`;
 
-      // Gunakan "await" agar kita tahu jika email gagal (opsional, bisa dibuat background)
       await sendEmail(
         email,
         "🔐 Reset Password - KitaPresensi",
-        `Halo,\n\nSeseorang meminta untuk mereset password akun Anda.\n\nKlik tautan di bawah ini untuk membuat password baru:\n${resetLink}\n\nHiraukan email ini jika Anda tidak memintanya.\nTautan ini akan valid sampai Anda mereset password.`
+        `Halo ${akun.username},\n\nKlik tautan di bawah ini untuk mereset password Anda:\n${resetLink}\n\nHiraukan email ini jika Anda tidak memintanya.\nTautan ini valid sampai Anda mengubah password.`
       );
 
       // 7. Response Sukses
-      // Pesannya sama persis dengan jika email tidak ditemukan (Konsisten)
-      res.json({ message: "Jika email terdaftar, tautan reset telah dikirim." });
+      res.json({ message: "Tautan reset password telah dikirim ke email Anda." });
 
     } catch (error) {
       console.error("Forgot Password Error:", error);
       res.status(500).json({ message: "Terjadi kesalahan server" });
     }
   }
-
   // =========================================================================
   // 9. RESET PASSWORD
   // =========================================================================

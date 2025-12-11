@@ -1,351 +1,368 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import Swal from "sweetalert2";
+import {
+  Search,
+  Plus,
+  Edit3,
+  Trash2,
+  CheckCircle,
+  RefreshCw
+} from "lucide-react";
+
+/**
+ * KaryawanManager.jsx
+ * UI disesuaikan dengan mockup (tampilan foto).
+ * - Jangan ubah endpoint backend.
+ * - Pastikan tailwindcss aktif.
+ */
+
+const Badge = ({ children, className = "" }) => (
+  <span className={`inline-block px-3 py-1 text-xs rounded-full font-medium ${className}`}>{children}</span>
+);
+
+const shiftColor = (shiftName) => {
+  if (!shiftName) return "bg-gray-100 text-gray-700";
+  const s = shiftName.toLowerCase();
+  if (s.includes("pagi")) return "bg-blue-50 text-blue-700";
+  if (s.includes("siang")) return "bg-yellow-50 text-yellow-700";
+  if (s.includes("malam")) return "bg-red-50 text-red-700";
+  return "bg-gray-100 text-gray-700";
+};
+
+const jabatanColor = (jabatan) => {
+  if (!jabatan) return "bg-gray-100 text-gray-700";
+  const j = jabatan.toLowerCase();
+  if (j.includes("manager")) return "bg-purple-50 text-purple-700";
+  if (j.includes("supervisor")) return "bg-orange-50 text-orange-700";
+  return "bg-green-50 text-green-700";
+};
 
 export default function KaryawanManager() {
   const queryClient = useQueryClient();
+
+  // Pagination & filter
   const [currentPage, setCurrentPage] = useState(1);
+  const [limit] = useState(10);
+  const [search, setSearch] = useState("");
+  const [filterJabatan, setFilterJabatan] = useState("Semua Jabatan");
+  const [filterShift, setFilterShift] = useState("Semua Shift");
+
+  // Modal / edit
   const [showEditForm, setShowEditForm] = useState(false);
   const [selectedKaryawan, setSelectedKaryawan] = useState(null);
 
-  // State untuk menyimpan daftar shift
+  // list shift untuk dropdown edit
   const [shiftList, setShiftList] = useState([]);
-  const limit = 20;
 
-
-  // HELPER: Format Hari Kerja (Boolean -> Teks)
-
-  const renderHariKerja = (shift) => {
-    const days = [];
-    if (shift.is_senin) days.push("Sen");
-    if (shift.is_selasa) days.push("Sel");
-    if (shift.is_rabu) days.push("Rab");
-    if (shift.is_kamis) days.push("Kam");
-    if (shift.is_jumat) days.push("Jum");
-    if (shift.is_sabtu) days.push("Sab");
-    if (shift.is_minggu) days.push("Min");
-    return days.length > 0 ? days.join(", ") : "Tidak ada jadwal";
-  };
-
-  // ===========
-  // Ambil Data Karyawan
-  // ===========
-  const { data: karyawanData = { data: [], total: 0 }, isLoading, isError } = useQuery({
-    queryKey: ["karyawan", currentPage],
+  // fetch karyawan
+  const { data: karyawanData = { data: [], total: 0, total_page: 1 }, isLoading, isError } = useQuery({
+    queryKey: ["karyawan", currentPage, search, filterJabatan, filterShift],
     queryFn: async () => {
-      const res = await axios.get(
-        `/api/admin/karyawan?page=${currentPage}&limit=${limit}`
-      );
+      const params = {
+        page: currentPage,
+        limit,
+      };
+      if (search) params.q = search;
+      if (filterJabatan !== "Semua Jabatan") params.jabatan = filterJabatan;
+      if (filterShift !== "Semua Shift") params.shift = filterShift;
+      const res = await axios.get("/api/admin/karyawan", { params });
       return res.data;
     },
     keepPreviousData: true,
   });
 
-  const handleRefresh = () =>
-    queryClient.invalidateQueries(["karyawan", currentPage]);
-
-  // ===========
-  // Ambil Daftar Shift untuk Dropdown
-  // ===========
-  const fetchShiftList = async () => {
-    try {
-      const res = await axios.get("/api/admin/shift");
-      setShiftList(res.data.data);
-    } catch (err) {
-      console.error("Gagal ambil shift", err);
-    }
-  };
-
+  // get shift list for select
   useEffect(() => {
-    fetchShiftList();
+    let mounted = true;
+    (async () => {
+      try {
+        const res = await axios.get("/api/admin/shift");
+        if (mounted) setShiftList(res.data?.data || []);
+      } catch (err) {
+        console.error("fetch shift failed", err);
+      }
+    })();
+    return () => (mounted = false);
   }, []);
 
-  // ===========
-  // Edit Karyawan
-  // ===========
-  const handleEditKaryawan = (karyawan) => {
-    setSelectedKaryawan({ ...karyawan });
+  const handleRefresh = () => queryClient.invalidateQueries(["karyawan"]);
+
+  // edit handlers
+  const handleEditKaryawan = (k) => {
+    // pastikan field no_tlp & alamat_karyawan selalu tersedia agar binding form aman
+    setSelectedKaryawan({
+      ...k,
+      no_tlp: k.no_tlp || k.noTelp || "",
+      alamat_karyawan: k.alamat_karyawan || k.alamat || ""
+    });
     setShowEditForm(true);
   };
 
   const handleSaveEdit = async (e) => {
     e.preventDefault();
     try {
+      // Kirim seluruh objek selectedKaryawan — backend akan mengabaikan field yang tidak diperlukan
       await axios.put(`/api/admin/karyawan/${selectedKaryawan.id_akun}`, selectedKaryawan);
-      Swal.fire("✅ Berhasil", "Data karyawan berhasil diperbarui", "success");
+      Swal.fire("Berhasil", "Data karyawan disimpan.", "success");
       setShowEditForm(false);
-      handleRefresh();
+      queryClient.invalidateQueries(["karyawan"]);
     } catch (err) {
-      Swal.fire("❌ Gagal", "Gagal memperbarui data karyawan", "error");
+      Swal.fire("Gagal", "Tidak dapat menyimpan data.", "error");
     }
   };
-
-  // HANDLER: Non-aktifkan Karyawan (Soft Delete)
 
   const handleDeleteKaryawan = async (id_akun) => {
-    const confirmAction = await Swal.fire({
+    const confirm = await Swal.fire({
       title: "Non-aktifkan Karyawan?",
-      text: "Karyawan tidak akan bisa login, namun data presensi tetap aman.",
+      text: "Data akun akan dinonaktifkan (soft delete).",
       icon: "warning",
       showCancelButton: true,
-      confirmButtonColor: "#d33", // Merah
-      cancelButtonColor: "#6c757d",
-      confirmButtonText: "Ya, Non-aktifkan!",
+      confirmButtonText: "Ya, Non-aktifkan",
       cancelButtonText: "Batal",
     });
-
-    if (confirmAction.isConfirmed) {
-      try {
-        // Memanggil endpoint DELETE (yang di backend sudah kita ubah jadi Soft Delete)
-        await axios.delete(`/api/admin/karyawan/${id_akun}`);
-
-        Swal.fire("Berhasil!", "Akun karyawan telah dinonaktifkan.", "success");
-        handleRefresh(); // Refresh tabel
-      } catch (err) {
-        console.error(err);
-        Swal.fire("Gagal", "Terjadi kesalahan saat menonaktifkan akun.", "error");
-      }
+    if (!confirm.isConfirmed) return;
+    try {
+      await axios.delete(`/api/admin/karyawan/${id_akun}`);
+      Swal.fire("Berhasil", "Karyawan dinonaktifkan.", "success");
+      queryClient.invalidateQueries(["karyawan"]);
+    } catch (err) {
+      Swal.fire("Gagal", "Terjadi kesalahan.", "error");
     }
   };
-
-
-  // HANDLER: Restore / Aktifkan Kembali
 
   const handleRestoreKaryawan = async (id_akun) => {
-    const confirmAction = await Swal.fire({
-      title: "Aktifkan Kembali?",
-      text: "Karyawan akan dapat login dan melakukan presensi lagi.",
+    const confirm = await Swal.fire({
+      title: "Aktifkan kembali?",
       icon: "question",
       showCancelButton: true,
-      confirmButtonColor: "#10B981", // Hijau
-      cancelButtonColor: "#6c757d",
-      confirmButtonText: "Ya, Aktifkan!",
+      confirmButtonText: "Ya, Aktifkan",
       cancelButtonText: "Batal",
     });
-
-    if (confirmAction.isConfirmed) {
-      try {
-        // Kita gunakan endpoint PUT untuk update status kembali ke 'AKTIF'
-        await axios.put(`/api/admin/karyawan/${id_akun}`, {
-          status_akun: 'AKTIF'
-        });
-
-        Swal.fire("Berhasil!", "Akun karyawan kembali AKTIF.", "success");
-        handleRefresh(); // Refresh tabel
-      } catch (err) {
-        console.error(err);
-        Swal.fire("Gagal", "Gagal mengaktifkan kembali akun.", "error");
-      }
+    if (!confirm.isConfirmed) return;
+    try {
+      await axios.put(`/api/admin/karyawan/${id_akun}`, { status_akun: "AKTIF" });
+      Swal.fire("Berhasil", "Akun diaktifkan kembali.", "success");
+      queryClient.invalidateQueries(["karyawan"]);
+    } catch (err) {
+      Swal.fire("Gagal", "Terjadi kesalahan.", "error");
     }
   };
 
-  // ===========
-  // Tampilan UI
-  // ===========
-  return (
-    <section>
-      <h2 className="text-xl font-bold mb-4">👥 Kelola Data Karyawan</h2>
-      <p className="text-gray-600">
-        Admin dapat menambah, mengedit, dan menghapus akun karyawan di perusahaan Anda.
-      </p>
+  // reset page ketika filter/search berubah
+  useEffect(() => setCurrentPage(1), [search, filterJabatan, filterShift]);
 
-      <div className="bg-white p-6 mt-4 rounded-lg shadow transition-transform duration-200 hover:shadow-lg">
-        <div className="flex justify-between mb-4 items-center">
-          <h3 className="font-semibold text-lg">Daftar Karyawan</h3>
-          <button
-            onClick={handleRefresh}
-            className="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700 active:scale-95 transition-all"
-          >
-            🔄 Refresh
-          </button>
+  return (
+    <div className="min-h-[calc(100vh-40px)] bg-gray-50 p-6">
+      {/* Header bar with filters centered like mock */}
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-2xl font-semibold text-gray-900">Daftar Karyawan</h1>
+          <p className="text-sm text-gray-500">Kelola data karyawan — tambah, edit, non-aktifkan.</p>
         </div>
 
-        {isLoading ? (
-          <p className="text-gray-500 text-center py-4">⏳ Memuat data...</p>
-        ) : isError ? (
-          <p className="text-red-500 text-center py-4">❌ Gagal memuat data</p>
-        ) : (
-          <table className="min-w-full border text-sm rounded-lg overflow-hidden">
-            <thead className="bg-gray-100 text-gray-700">
+        <div className="flex items-center gap-3">
+          <button onClick={handleRefresh} className="hidden md:flex items-center gap-2 bg-white border px-3 py-2 rounded-md text-sm hover:shadow-sm">
+            <RefreshCw size={14} /> Refresh
+          </button>
+          <button onClick={() => Swal.fire("Tambah", "Form tambah akan muncul (mock).", "info")}
+            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm shadow-sm">
+            <Plus size={16} /> Tambah Karyawan
+          </button>
+        </div>
+      </div>
+
+      {/* Toolbar center: filters + search (mimic image: filters left/center, search input, button right) */}
+      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 mb-6 flex flex-col md:flex-row items-center gap-3">
+        <div className="flex items-center gap-3 w-full md:w-auto">
+          <select value={filterJabatan} onChange={(e) => setFilterJabatan(e.target.value)}
+            className="px-3 py-2 border rounded-lg bg-white text-sm">
+            <option>Semua Jabatan</option>
+            <option>Manager</option>
+            <option>Supervisor</option>
+            <option>Staff</option>
+          </select>
+
+          <select value={filterShift} onChange={(e) => setFilterShift(e.target.value)}
+            className="px-3 py-2 border rounded-lg bg-white text-sm">
+            <option>Semua Shift</option>
+            <option>Pagi</option>
+            <option>Siang</option>
+            <option>Malam</option>
+          </select>
+        </div>
+
+        <div className="flex items-center gap-3 flex-1">
+          <div className="relative flex-1">
+            <Search size={16} className="absolute left-3 top-3 text-gray-400" />
+            <input value={search} onChange={(e) => setSearch(e.target.value)}
+              placeholder="Cari karyawan..."
+              className="w-full pl-10 pr-4 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-indigo-200 outline-none" />
+          </div>
+        </div>
+
+      </div>
+
+      {/* Table card */}
+      <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm text-left">
+            <thead className="bg-white text-gray-600 border-b">
               <tr>
-                <th className="p-2 border">Nama</th>
-                <th className="p-2 border">Email</th>
-                <th className="p-2 border">Jabatan</th>
-                <th className="p-2 border">Shift</th>
-                <th className="p-2 border">Hari Kerja</th>
-                <th className="p-2 border">Aksi</th>
+                <th className="px-6 py-4">Nama</th>
+                <th className="px-6 py-4">Email</th>
+                <th className="px-6 py-4">Shift</th>
+                <th className="px-6 py-4">Hari Kerja</th>
+                <th className="px-6 py-4 text-center">Status</th>
+                <th className="px-6 py-4 text-center">Aksi</th>
               </tr>
             </thead>
-            <tbody>
-              {karyawanData.data?.map((k) => (
-                <tr key={k.id_akun} className={k.status_akun === 'NONAKTIF' ? "bg-gray-200 text-gray-500" : "hover:bg-indigo-50"}>
-                  <td className="border p-2">
-                    {k.username}
-                    {k.status_akun === 'NONAKTIF' && (
-                      <span className="ml-2 text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded-full">
-                        Non-Aktif
-                      </span>
-                    )}
-                  </td>
-                  <td className="border p-2">{k.username}</td>
-                  <td className="border p-2">{k.email}</td>
-                  <td className="border p-2">{k.id_jabatan}</td>
-                  <td className="border p-2">
-                    {k.shift ? `${k.shift.nama_shift} (${k.shift.jam_masuk}-${k.shift.jam_pulang})` : "-"}
-                  </td>
-                  {/* Tampilkan hari kerja juga di tabel utama biar informatif */}
-                  <td className="border p-2 text-xs text-gray-600">
-                    {k.shift ? renderHariKerja(k.shift) : "-"}
-                  </td>
-                  {/* Bagian Kolom Aksi di dalam .map */}
-                  <td className="border p-2 text-center">
-                    <div className="flex items-center justify-center gap-2">
-                      {/* Tombol Edit */}
-                      <button
-                        onClick={() => handleEditKaryawan(k)}
-                        className="bg-yellow-400 px-3 py-1 rounded text-white hover:bg-yellow-500 transition-all text-xs"
-                        title="Edit Data"
-                      >
-                        ✏️ Edit
-                      </button>
 
-                      {/* Logic Tombol Non-aktifkan / Aktifkan */}
-                      {k.status_akun !== 'NONAKTIF' ? (
-                        <button
-                          onClick={() => handleDeleteKaryawan(k.id_akun)}
-                          className="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600 transition-all text-xs"
-                          title="Non-aktifkan Akun"
-                        >
-                          🛑 Non-aktifkan
-                        </button>
+            <tbody className="divide-y divide-gray-100">
+              {isLoading ? (
+                <tr><td colSpan="6" className="text-center py-8 text-gray-500">⏳ Memuat data...</td></tr>
+              ) : isError ? (
+                <tr><td colSpan="6" className="text-center py-8 text-red-500">❌ Gagal memuat data</td></tr>
+              ) : (karyawanData.data || []).length === 0 ? (
+                <tr><td colSpan="6" className="text-center py-8 text-gray-400">Data tidak ditemukan.</td></tr>
+              ) : (
+                karyawanData.data.map((k) => (
+                  <tr key={k.id_akun} className="hover:bg-gray-50 transition-colors">
+                    <td className="px-6 py-4 align-top">
+                      <div className="flex items-start gap-3">
+                        <div className={`h-10 w-10 rounded-full flex items-center justify-center text-sm font-bold ${k.status_akun === 'NONAKTIF' ? 'bg-gray-200 text-gray-500' : 'bg-indigo-100 text-indigo-700'}`}>
+                          {(k.username || "U").slice(0,2).toUpperCase()}
+                        </div>
+                        <div>
+                          <div className={`font-medium ${k.status_akun === 'NONAKTIF' ? 'text-gray-500' : 'text-gray-900'}`}>{k.username}</div>
+                          <div className="text-xs text-gray-400">ID: {k.id_akun}</div>
+                        </div>
+                      </div>
+                    </td>
+
+                    <td className="px-6 py-4 align-top text-gray-700">{k.email}</td>
+
+                    <td className="px-6 py-4 align-top">
+                      <Badge className={shiftColor(k.shift?.nama_shift || k.shift)}>
+                        {k.shift?.nama_shift || (k.shift || "—")}
+                      </Badge>
+                    </td>
+
+                    <td className="px-6 py-4 align-top text-sm text-gray-600">
+                      {k.shift ? `${k.shift.jam_masuk} - ${k.shift.jam_pulang}` : "—"}
+                    </td>
+
+                    <td className="px-6 py-4 align-top text-center">
+                      {k.status_akun === 'NONAKTIF' ? (
+                        <Badge className="bg-gray-100 text-gray-700">Nonaktif</Badge>
                       ) : (
-                        <button
-                          onClick={() => handleRestoreKaryawan(k.id_akun)}
-                          className="bg-green-500 text-white px-3 py-1 rounded hover:bg-green-600 transition-all text-xs"
-                          title="Aktifkan Kembali"
-                        >
-                          ✅ Aktifkan
-                        </button>
+                        <Badge className="bg-emerald-100 text-emerald-700">Aktif</Badge>
                       )}
-                    </div>
-                  </td>
-                </tr>
-              ))}
+                    </td>
+
+                    <td className="px-6 py-4 align-top text-center">
+                      <div className="flex items-center justify-center gap-2">
+                        <button title="Edit" onClick={() => handleEditKaryawan(k)}
+                          className="p-2 rounded-md text-indigo-600 hover:bg-indigo-50">
+                          <Edit3 size={16} />
+                        </button>
+
+                        {k.status_akun !== 'NONAKTIF' ? (
+                          <button title="Non-aktifkan" onClick={() => handleDeleteKaryawan(k.id_akun)}
+                            className="p-2 rounded-md text-red-600 hover:bg-red-50">
+                            <Trash2 size={16} />
+                          </button>
+                        ) : (
+                          <button title="Aktifkan" onClick={() => handleRestoreKaryawan(k.id_akun)}
+                            className="p-2 rounded-md text-emerald-600 hover:bg-emerald-50">
+                            <CheckCircle size={16} />
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
-        )}
+        </div>
 
-        {/* Pagination */}
-        <div className="flex justify-center mt-4 space-x-2">
-          <button
-            disabled={currentPage === 1}
-            onClick={() => setCurrentPage(currentPage - 1)}
-            className="bg-gray-200 px-3 py-1 rounded disabled:opacity-50 hover:bg-gray-300 active:scale-95 transition-all"
-          >
-            ◀️ Sebelumnya
-          </button>
-          <span className="px-3 py-1">Halaman {currentPage}</span>
-          <button
-            disabled={karyawanData.data?.length < limit}
-            onClick={() => setCurrentPage(currentPage + 1)}
-            className="bg-gray-200 px-3 py-1 rounded disabled:opacity-50 hover:bg-gray-300 active:scale-95 transition-all"
-          >
-            Berikutnya ▶️
-          </button>
+        {/* Pagination (small rounded like mock) */}
+        <div className="p-4 border-t bg-gray-50 flex items-center justify-end gap-3">
+          <div className="text-xs text-gray-500 mr-auto">
+            Menampilkan { (karyawanData.data || []).length } dari { karyawanData.total || 0 } data
+          </div>
+          <button disabled={currentPage === 1} onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+            className="px-3 py-1 border rounded disabled:opacity-50">Previous</button>
+
+          {/* simple numeric pager (you can replace with dynamic) */}
+          <button className={`px-3 py-1 border rounded ${currentPage === 1 ? 'bg-blue-600 text-white' : 'bg-white'}`}>1</button>
+          <button className={`px-3 py-1 border rounded ${currentPage === 2 ? 'bg-blue-600 text-white' : 'bg-white'}`}>2</button>
+          <button className={`px-3 py-1 border rounded ${currentPage === 3 ? 'bg-blue-600 text-white' : 'bg-white'}`}>3</button>
+
+          <button disabled={(karyawanData.data || []).length < limit} onClick={() => setCurrentPage(p => p + 1)}
+            className="px-3 py-1 border rounded disabled:opacity-50">Next</button>
         </div>
       </div>
 
       {/* Modal Edit */}
       {showEditForm && selectedKaryawan && (
-        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
-          <div className="bg-white p-6 rounded-lg shadow-lg w-96 animate-fadeIn">
-            <h3 className="font-bold mb-3 text-lg">✏️ Edit Karyawan</h3>
-            <form onSubmit={handleSaveEdit} className="space-y-3">
-              <input
-                name="username"
-                value={selectedKaryawan.username}
-                onChange={(e) =>
-                  setSelectedKaryawan({ ...selectedKaryawan, username: e.target.value })
-                }
-                placeholder="Nama Karyawan"
-                className="w-full border p-2 rounded"
-                required
-              />
-              <input
-                name="email"
-                value={selectedKaryawan.email}
-                onChange={(e) =>
-                  setSelectedKaryawan({ ...selectedKaryawan, email: e.target.value })
-                }
-                placeholder="Email"
-                className="w-full border p-2 rounded"
-                required
-              />
-              <input
-                name="no_tlp"
-                value={selectedKaryawan.no_tlp || ""}
-                onChange={(e) =>
-                  setSelectedKaryawan({ ...selectedKaryawan, no_tlp: e.target.value })
-                }
-                placeholder="No. Telepon"
-                className="w-full border p-2 rounded"
-              />
-              <input
-                name="alamat_karyawan"
-                value={selectedKaryawan.alamat_karyawan || ""}
-                onChange={(e) =>
-                  setSelectedKaryawan({
-                    ...selectedKaryawan,
-                    alamat_karyawan: e.target.value,
-                  })
-                }
-                placeholder="Alamat"
-                className="w-full border p-2 rounded"
-              />
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-md overflow-auto">
+            <div className="p-4 border-b flex justify-between items-center">
+              <h3 className="font-semibold">✏️ Edit Karyawan</h3>
+              <button onClick={() => setShowEditForm(false)} className="text-gray-400 hover:text-gray-700">✕</button>
+            </div>
 
-              {/* ✅ UPDATE DROPDOWN SHIFT */}
+            <form onSubmit={handleSaveEdit} className="p-6 space-y-3">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Pilih Shift Kerja</label>
-                <select
-                  name="id_shift"
-                  value={selectedKaryawan.id_shift || ""}
-                  onChange={(e) =>
-                    setSelectedKaryawan({ ...selectedKaryawan, id_shift: e.target.value })
-                  }
-                  className="border p-2 rounded w-full text-sm"
-                >
-                  <option value="">-- Pilih Shift --</option>
-                  {shiftList.map((shift) => (
-                    <option key={shift.id_shift} value={shift.id_shift}>
-                      {shift.nama_shift} ({shift.jam_masuk}-{shift.jam_pulang}) — {renderHariKerja(shift)}
-                    </option>
-                  ))}
-                </select>
-                <p className="text-xs text-gray-500 mt-1">
-                  *Format: Nama (Jam) — Hari Kerja
-                </p>
+                <label className="block text-xs text-gray-600 mb-1">Nama</label>
+                <input required value={selectedKaryawan.username || ""} onChange={(e) => setSelectedKaryawan({...selectedKaryawan, username: e.target.value})}
+                  className="w-full border rounded px-3 py-2 text-sm" />
               </div>
 
-              <div className="flex justify-end gap-2 mt-4">
-                <button
-                  type="button"
-                  onClick={() => setShowEditForm(false)}
-                  className="px-3 py-1 bg-gray-300 rounded hover:bg-gray-400 active:scale-95 transition-all"
-                >
-                  Batal
-                </button>
-                <button
-                  type="submit"
-                  className="px-3 py-1 bg-indigo-600 text-white rounded hover:bg-indigo-700 active:scale-95 transition-all"
-                >
-                  Simpan
-                </button>
+              <div>
+                <label className="block text-xs text-gray-600 mb-1">Email</label>
+                <input required value={selectedKaryawan.email || ""} onChange={(e) => setSelectedKaryawan({...selectedKaryawan, email: e.target.value})}
+                  className="w-full border rounded px-3 py-2 text-sm" />
+              </div>
+
+              {/* ADDED: No. Telepon */}
+              <div>
+                <label className="block text-xs text-gray-600 mb-1">No. Telepon</label>
+                <input value={selectedKaryawan.no_tlp || ""} onChange={(e) => setSelectedKaryawan({...selectedKaryawan, no_tlp: e.target.value})}
+                  placeholder="0812xxxxxxx"
+                  className="w-full border rounded px-3 py-2 text-sm" />
+              </div>
+
+              {/* ADDED: Alamat Karyawan */}
+              <div>
+                <label className="block text-xs text-gray-600 mb-1">Alamat</label>
+                <input value={selectedKaryawan.alamat_karyawan || ""} onChange={(e) => setSelectedKaryawan({...selectedKaryawan, alamat_karyawan: e.target.value})}
+                  placeholder="Jl. Contoh No. 123, Kota"
+                  className="w-full border rounded px-3 py-2 text-sm" />
+              </div>
+
+              <div>
+                <label className="block text-xs text-gray-600 mb-1">Pilih Shift</label>
+                <select value={selectedKaryawan.id_shift || ""} onChange={(e) => setSelectedKaryawan({...selectedKaryawan, id_shift: e.target.value})}
+                  className="w-full border rounded px-3 py-2 text-sm">
+                  <option value="">-- Tidak ada --</option>
+                  {shiftList.map(s => (
+                    <option key={s.id_shift} value={s.id_shift}>{s.nama_shift} ({s.jam_masuk}-{s.jam_pulang})</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex justify-end gap-2">
+                <button type="button" onClick={() => setShowEditForm(false)} className="px-3 py-2 border rounded text-sm">Batal</button>
+                <button type="submit" className="px-4 py-2 bg-indigo-600 text-white rounded text-sm">Simpan</button>
               </div>
             </form>
           </div>
         </div>
       )}
-    </section>
+    </div>
   );
 }

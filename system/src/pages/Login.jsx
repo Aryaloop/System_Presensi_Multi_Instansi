@@ -11,7 +11,7 @@ export default function Login() {
   const [remember, setRemember] = useState(false);
 
   useEffect(() => {
-    document.title = "Masuk - PresensiKu";
+    document.title = "Masuk - KitaPresensi";
   }, []);
 
   const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
@@ -131,7 +131,7 @@ export default function Login() {
               </svg>
             </div>
 
-            <h1 className="text-center text-2xl font-extrabold mt-3">PresensiKu</h1>
+            <h1 className="text-center text-2xl font-extrabold mt-3">KitaPresensi</h1>
             <p className="text-center text-xs text-gray-500">Sistem Presensi Digital Terpercaya</p>
 
             <div className="mt-6">

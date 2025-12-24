@@ -1,14 +1,7 @@
 import express from "express";
-import { createClient } from "@supabase/supabase-js";
-// import { v4 as uuidv4 } from "uuid";
-import dotenv from "dotenv";
-import path from "path";
-
-// Sesuaikan path .env karena masuk satu folder lebih dalam
-dotenv.config({ path: path.resolve("../../../.env") });
+import { supabase } from "../config/db.js"; // IMPORT DARI DB.JS
 
 const router = express.Router();
-const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
 
 // GET Karyawan
 router.get("/api/admin/karyawan", async (req, res) => {
@@ -46,35 +39,6 @@ router.get("/api/admin/karyawan", async (req, res) => {
     res.status(500).json({ message: "Gagal memuat data karyawan" });
   }
 });
-
-// POST Karyawan
-// router.post("/api/admin/karyawan", async (req, res) => {
-//   try {
-//     const { username, email, password, id_jabatan, no_tlp, alamat_karyawan, id_shift } = req.body;
-//     const id_perusahaan = req.user.id_perusahaan;
-
-//     const { data, error } = await supabase.from("akun").insert([
-//       {
-//         id_akun: uuidv4(),
-//         username,
-//         email,
-//         password, // Disarankan di-hash dulu (bcrypt) sebelum masuk sini
-//         id_jabatan,
-//         id_perusahaan,
-//         no_tlp,
-//         alamat_karyawan,
-//         id_shift,
-//         created_at: new Date(),
-//       },
-//     ]);
-
-//     if (error) throw error;
-//     res.json({ message: "✅ Karyawan berhasil ditambahkan", data });
-//   } catch (err) {
-//     console.error("❌ Error tambah karyawan:", err);
-//     res.status(500).json({ message: "Gagal menambah karyawan" });
-//   }
-// });
 
 // PUT Karyawan (Bisa untuk Edit Profil & Restore/Aktifkan Kembali)
 router.put("/api/admin/karyawan/:id_akun", async (req, res) => {
@@ -125,7 +89,7 @@ router.put("/api/admin/karyawan/:id_akun", async (req, res) => {
 
     if (error) throw error;
     
-    res.json({ message: "✅ Data karyawan diperbarui", data });
+    res.json({ message: " Data karyawan diperbarui", data });
 
   } catch (err) {
     console.error("Error update karyawan:", err); // Penting: Log error agar terlihat di terminal
@@ -163,7 +127,7 @@ router.delete("/api/admin/karyawan/:id_akun", async (req, res) => {
 
     if (error) throw error;
 
-    res.json({ message: "✅ Karyawan berhasil dinonaktifkan (Soft Delete)" });
+    res.json({ message: " Karyawan berhasil dinonaktifkan (Soft Delete)" });
 
   } catch (err) {
     console.error("Soft delete error:", err);

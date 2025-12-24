@@ -5,7 +5,8 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-d
 // Import semua halaman
 import Login from "./pages/Login";
 import Register from "./pages/Register";
-import Verify from "./pages/Verify";
+import Verify from "./pages/Verify"; // <--- Import ini
+import WaitingVerify from "./pages/WaitingVerify";
 import DashboardSuperAdmin from "./pages/DashboardSuperAdmin";
 import DashboardAdmin from "./pages/DashboardAdmin";
 import DashboardUser from "./pages/DashboardUser";
@@ -26,8 +27,13 @@ function App() {
           <Route path="/register" element={<Register />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
 
-          {/* Protected Routes */}
+          {/* Register Route) */}
+          {/* HALAMAN MENUNGGU (Redirect habis register) */}
+          <Route path="/waiting/:token" element={<WaitingVerify />} />
+          {/* HALAMAN EKSEKUTOR (Link dari Email) */}
           <Route path="/verify/:token" element={<Verify />} />
+
+          {/* Protected Routes */}
           <Route path="/reset-password/:token" element={<ResetPassword />} />
           <Route path="/dashboard_super_admin" element={<DashboardSuperAdmin />} />
           <Route path="/dashboard_admin" element={<DashboardAdmin />} />

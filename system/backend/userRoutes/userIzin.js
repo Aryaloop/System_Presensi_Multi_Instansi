@@ -1,14 +1,9 @@
 import express from "express";
-import { createClient } from "@supabase/supabase-js";
-import dotenv from "dotenv";
-import path from "path";
-
-dotenv.config({ path: path.resolve("../../../.env") });
+import { supabase } from "../config/db.js"; // IMPORT DARI DB.JS
 
 const router = express.Router();
-const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
 
-// 📝 POST: Ajukan Izin / WFH
+// POST: Ajukan Izin / WFH
 router.post("/api/user/izin", async (req, res) => {
   try {
     const { tanggal_mulai, tanggal_selesai, jenis_izin, alasan, keterangan } = req.body;
@@ -17,19 +12,9 @@ router.post("/api/user/izin", async (req, res) => {
     if (!id_akun || !tanggal_mulai || !tanggal_selesai || !jenis_izin)
       return res.status(400).json({ success: false, message: "Data tidak lengkap." });
 
-    // Cek Overlap
-    const { data: existing, error: overlapError } = await supabase
-      .from("izin_wfh")
-      .select("id_izin")
-      .eq("id_akun", id_akun)
-      .lte("tanggal_mulai", tanggal_selesai)
-      .gte("tanggal_selesai", tanggal_mulai)
-      .maybeSingle();
+    // --- BAGIAN LAMA DIHAPUS (Tidak perlu SELECT cek overlap) ---
 
-    if (overlapError) throw overlapError;
-    if (existing) return res.status(400).json({ success: false, message: "Kamu sudah memiliki izin di tanggal ini." });
-
-    // Insert
+    // Langsung Insert (Optimistic Approach)
     const { error: insertError } = await supabase.from("izin_wfh").insert([{
       id_akun,
       tanggal_mulai,
@@ -40,16 +25,29 @@ router.post("/api/user/izin", async (req, res) => {
       status_persetujuan: "PENDING"
     }]);
 
-    if (insertError) throw insertError;
+    if (insertError) {
+      // Kode Error '23P01' adalah "Exclusion Violation" di PostgreSQL
+      // Artinya: Data bentrok dengan constraint yang sudah kita pasang
+      if (insertError.code === '23P01') {
+        return res.status(400).json({
+          success: false,
+          message: "Kamu sudah memiliki izin di tanggal tersebut (Bentrok)."
+        });
+      }
+
+      // Error lain (koneksi putus, struktur tabel salah, dll)
+      throw insertError;
+    }
+
     res.json({ success: true, message: "Pengajuan berhasil dikirim." });
 
   } catch (error) {
-    console.error("❌ Error ajukan izin:", error);
+    console.error(" Error ajukan izin:", error);
     res.status(500).json({ success: false, message: "Gagal mengirim pengajuan." });
   }
 });
 
-// 📊 GET: Summary Izin (Untuk Dashboard/Statistik)
+//  GET: Summary Izin (Untuk Dashboard/Statistik)
 router.get("/api/user/izin/summary", async (req, res) => {
   try {
     const id_akun = req.user.id_akun;

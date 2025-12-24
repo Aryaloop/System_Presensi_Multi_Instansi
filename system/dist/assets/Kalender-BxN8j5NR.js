@@ -1,0 +1,1 @@
+import{j as r}from"./index-QZFomR2Y.js";import{S as s}from"./StatCards-5NGAYF5M.js";import{W as t}from"./WidgetKalender-C4aGY2nj.js";import"./clsx-B-dksMZM.js";function m(){return r.jsxs("div",{className:"space-y-6",children:[r.jsx(s,{}),r.jsx(t,{})]})}export{m as default};

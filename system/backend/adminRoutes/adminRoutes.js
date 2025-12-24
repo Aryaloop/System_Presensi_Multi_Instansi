@@ -8,13 +8,13 @@ import perusahaanRoutes from "./adminPerusahaan.js";
 import absenRoutes from "./adminAbsen.js";
 import createSubAdmin from "./createSubAdmin.js";
 // Import Middleware (sesuaikan path mundur satu folder)
-import { verifyToken, verifyAdmin } from "../authMiddleware.js";
+import { verifyToken, verifyAdmin } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 router.use(compression());
 
 // ===================================================================
-// 🔒 PASANG SATPAM (Middleware) DI SINI
+//  PASANG SATPAM (Middleware) DI SINI
 // Semua route di bawah ini otomatis terproteksi
 // ===================================================================
 router.use(verifyToken, verifyAdmin);

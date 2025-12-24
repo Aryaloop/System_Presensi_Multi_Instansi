@@ -201,9 +201,9 @@ export default function PerusahaanManager() {
                             <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z" /></svg>
                           </IconButton>
                         )}
-                        <IconButton tone="red" title="Hapus" onClick={() => handleDelete(p.id_perusahaan)}>
+                        {/* <IconButton tone="red" title="Hapus" onClick={() => handleDelete(p.id_perusahaan)}>
                           <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M6 7h12l-1 14H7L6 7zm3-3h6l1 2H8l1-2z" /></svg>
-                        </IconButton>
+                        </IconButton> */}
                       </div>
                     </td>
                   </tr>

@@ -18,7 +18,7 @@ export default function Register() {
 
   // 2. Ubah Judul Tab
   useEffect(() => {
-    document.title = "Daftar Akun - PresensiKu";
+    document.title = "Daftar Akun - KitaPresensi";
   }, []);
 
   const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });

@@ -1,13 +1,8 @@
 import express from "express";
-import { createClient } from "@supabase/supabase-js";
-import dotenv from "dotenv";
-import path from "path";
-
-dotenv.config({ path: path.resolve("../../../.env") });
+import { supabase } from "../config/db.js"; // IMPORT DARI DB.JS
 
 const router = express.Router();
-// Gunakan SERVICE_ROLE_KEY agar bisa bypass RLS
-const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
+
 
 // ====================================================================
 // GET: Semua Data Izin (Hanya untuk perusahaan Admin login)

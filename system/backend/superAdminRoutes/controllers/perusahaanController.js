@@ -7,7 +7,7 @@
  * * Deskripsi:
  * Controller ini menangani operasi CRUD (Create, Read, Update, Delete) untuk
  * data 'Perusahaan' pada dashboard Super Admin.
- * * Fitur Utama:
+ * * Fitur Utama: 
  * 1. Pagination & Search (Server-side).
  * 2. Proteksi Data System (Hardcoded ID Protection).
  * 3. Validasi Relasi (Mencegah hapus perusahaan jika masih ada akun).
@@ -22,14 +22,8 @@
  * ==============================================================================
  */
 
-import { createClient } from "@supabase/supabase-js";
+import { supabase } from "../../config/db.js"; // IMPORT DARI DB.JS
 import crypto from "crypto";
-import dotenv from "dotenv";
-import path from "path";
-
-// Load environment variables dari root folder
-dotenv.config({ path: path.resolve("../../.env") });
-const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
 
 // 🔒 CONSTANT: ID Perusahaan System/Internal
 // Digunakan untuk pengecekan security di setiap fungsi write/delete.
@@ -66,7 +60,7 @@ export const getAllPerusahaan = async (req, res) => {
         if (error) throw error;
         res.json({ data, page, limit, total: count });
     } catch (err) {
-        console.error("❌ [Perusahaan] Get All Error:", err);
+        console.error(" [Perusahaan] Get All Error:", err);
         res.status(500).json({ message: "Server Error" });
     }
 };
@@ -94,7 +88,7 @@ export const createPerusahaan = async (req, res) => {
         if (error) throw error;
         res.status(201).json({ message: "Perusahaan berhasil dibuat" });
     } catch (err) {
-        console.error("❌ [Perusahaan] Create Error:", err);
+        console.error(" [Perusahaan] Create Error:", err);
         res.status(500).json({ message: "Gagal membuat perusahaan" });
     }
 };
@@ -123,7 +117,7 @@ export const updatePerusahaan = async (req, res) => {
         if (error) throw error;
         res.json({ message: "Data perusahaan diperbarui" });
     } catch (err) {
-        console.error("❌ [Perusahaan] Update Error:", err);
+        console.error(" [Perusahaan] Update Error:", err);
         res.status(500).json({ message: "Gagal update data" });
     }
 };
@@ -152,7 +146,7 @@ export const suspendPerusahaan = async (req, res) => {
         if (error) throw error;
         res.json({ message: `Status berhasil diubah menjadi ${status ? 'Aktif' : 'Suspend'}` });
     } catch (err) {
-        console.error("❌ [Perusahaan] Suspend Error:", err);
+        console.error(" [Perusahaan] Suspend Error:", err);
         res.status(500).json({ message: "Gagal ubah status" });
     }
 };
@@ -196,7 +190,7 @@ export const deletePerusahaan = async (req, res) => {
         if (error) throw error;
         res.json({ message: "Perusahaan dihapus permanen" });
     } catch (err) {
-        console.error("❌ [Perusahaan] Delete Error:", err);
+        console.error(" [Perusahaan] Delete Error:", err);
         res.status(500).json({ message: "Gagal hapus data" });
     }
 };

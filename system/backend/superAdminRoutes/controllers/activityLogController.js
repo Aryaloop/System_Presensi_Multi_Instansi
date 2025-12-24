@@ -1,4 +1,4 @@
-import { supabase } from "../../config/db.js";
+import { supabaseAdmin } from "../../config/db.js";
 
 export const getActivityLogs = async (req, res) => {
   try {
@@ -12,7 +12,7 @@ export const getActivityLogs = async (req, res) => {
     const to = from + limit - 1;
 
     // 3. Query Dasar
-    let query = supabase
+    let query = supabaseAdmin
       .from("activity_logs")
       .select(`
         *,

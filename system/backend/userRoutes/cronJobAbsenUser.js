@@ -63,17 +63,16 @@ export const initDailyAttendance = async () => {
     // 2. Filter & Siapkan Data Insert
     const insertPayload = [];
 
+    // Di cronJobAbsenUser.js
     for (const k of karyawans) {
-      // Cek apakah kolom hari ini true (Contoh: shift.is_senin === true)
       if (k.shift && k.shift[columnName] === true) {
         insertPayload.push({
           id_akun: k.id_akun,
           id_perusahaan: k.id_perusahaan,
           id_shift: k.id_shift,
-          status: "ALFA", // Status awal sebelum absen
-          jam_masuk: null,
-          jam_pulang: null,
-          created_at: new Date().toISOString() // Simpan timestamp UTC (Database index yang akan handle unik tanggal)
+          status: "ALFA",
+          // Mengunci jam ke 07:00 UTC agar di Indonesia tetap terhitung tanggal yang sama (pagi hari)
+          created_at: `${todayDate}T07:00:00.000Z`
         });
       }
     }

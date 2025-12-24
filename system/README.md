@@ -70,3 +70,53 @@ Jika Anda ingin mengubah ID ini agar sesuai dengan kode perusahaan Anda (misal: 
     ```
 
 > **Penting:** Pastikan ID yang Anda pasang di code **BENAR-BENAR ADA** di database. Jika tidak, logika proteksi mungkin tidak berjalan semestinya atau Super Admin kehilangan akses ke fitur tertentu.
+
+system/
+└── backend/
+    ├── adminRoutes/                ← Modul Khusus Admin (Logika & Route)
+    │   ├── adminAbsen.js           ← Kelola Presensi Karyawan
+    │   ├── adminIzin.js            ← Verifikasi Izin
+    │   ├── adminKaryawan.js        ← CRUD Data Karyawan
+    │   ├── adminPerusahaan.js      ← Setting Lokasi Kantor
+    │   ├── adminRoutes.js          ← Main Router untuk /api/admin
+    │   ├── adminShift.js           ← Kelola Shift Kerja
+    │   └── createSubAdmin.js       ← Fitur Tambah Sub-Admin
+    │
+    ├── config/
+    │   └── db.js                   ← Koneksi Supabase/PostgreSQL
+    │
+    ├── controllers/                ← Controller Global (Auth)
+    │   └── authController.js       ← Logic Login, Register, Logout
+    │
+    ├── middleware/                 ← Keamanan
+    │   ├── authMiddleware.js       ← Verifikasi JWT & Role
+    │   ├── csrfMiddleware.js       ← Proteksi CSRF (Double Submit Cookie)
+    │   └── limiter.js              ← Rate Limiting
+    │
+    ├── routes/                     ← Route Global
+    │   └── authRoutes.js           ← Router untuk Auth (/api/login, etc)
+    │
+    ├── superAdminRoutes/           ← Modul Khusus Super Admin
+    │   ├── controllers/            ← Controller Terpisah (Lebih Rapi)
+    │   │   ├── activityLogController.js
+    │   │   ├── adminManagementController.js
+    │   │   └── perusahaanController.js
+    │   └── superAdminRoutes.js     ← Main Router untuk /api/superadmin
+    │
+    ├── userRoutes/                 ← Modul Khusus User/Pegawai
+    │   ├── cronJobAbsenUser.js     ← Auto-Alfa (Scheduler)
+    │   ├── userAbsen.js            ← Logic Absen GPS
+    │   ├── userIzin.js             ← Logic Pengajuan Izin
+    │   ├── userKehadiran.js        ← Get History Kehadiran
+    │   ├── userProfile.js          ← Get/Update Profile
+    │   └── userRoutes.js           ← Main Router untuk /api/user
+    │
+    ├── utils/                      ← Fungsi Bantuan
+    │   ├── emailService.js         ← Nodemailer Config
+    │   ├── logger.js               ← Pencatat Log Sistem
+    │   └── scheduler.js            ← Cron Job Manager
+    │
+    ├── node_modules/               ← Library Dependencies
+    ├── index.js                    ← Entry Point (Server Utama)
+    ├── package.json                ← Daftar Dependensi
+    └── package-lock.json           ← Lock Versi Dependensi

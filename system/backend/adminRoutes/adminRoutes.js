@@ -25,6 +25,5 @@ router.use(shiftRoutes);
 router.use(izinRoutes);
 router.use(perusahaanRoutes);
 router.use(absenRoutes);
-// Contoh di route file
 router.use(createSubAdmin);
 export default router;

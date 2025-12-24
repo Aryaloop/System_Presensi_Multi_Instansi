@@ -98,7 +98,7 @@ router.get("/api/admin/kehadiran", async (req, res) => {
 router.patch("/api/admin/kehadiran/:id_kehadiran", async (req, res) => {
   try {
     const { id_kehadiran } = req.params;
-    const { status, jam_masuk, jam_pulang, keterangan } = req.body;
+    const { status, jam_masuk, jam_pulang} = req.body;
 
     // Update data
     const { data, error } = await supabase

@@ -2,7 +2,7 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import crypto from "crypto";
 import { v4 as uuidv4 } from "uuid";
-import { db, supabase } from "../config/db.js";
+import { db, supabase,  supabaseAdmin} from "../config/db.js";
 import { sendEmail } from "../utils/emailService.js"; // Pastikan path ini sesuai lokasi file emailService kamu
 import { logActivity } from "../utils/logger.js";
 
@@ -20,7 +20,7 @@ export class AuthController {
         return res.status(400).json({ message: "Lengkapi semua field" });
 
       // Cek Email Duplikat
-      const { data: existing } = await supabase
+      const { data: existing } = await supabaseAdmin
         .from("akun")
         .select("email")
         .eq("email", email)
@@ -35,7 +35,7 @@ export class AuthController {
       const tokenVerifikasi = crypto.randomBytes(32).toString("hex");
 
       // Insert Data Akun Baru
-      const { error: insertError } = await supabase.from("akun").insert([
+      const { error: insertError } = await supabaseAdmin.from("akun").insert([
         {
           id_akun: uuidv4(),
           username,
@@ -79,8 +79,8 @@ export class AuthController {
       // Catatan: setTimeout penghapusan akun dipindahkan ke CronJob (Scheduler) agar server lebih stabil
       res.json({
         success: true,
-        message: "Registrasi berhasil! Silakan verifikasi email kamu dalam 3 menit.",
-        token_verifikasi: tokenVerifikasi // Opsional: dikirim jika frontend butuh redirect langsung
+        message: "Registrasi berhasil! Silakan verifikasi email kamu dalam 3 menit."
+        // token_verifikasi: tokenVerifikasi // Opsional: dikirim jika frontend butuh redirect langsung
       });
 
     } catch (err) {
@@ -96,7 +96,7 @@ export class AuthController {
     const { token } = req.params;
     try {
       // Cari akun berdasarkan token
-      const { data: akun } = await supabase
+      const { data: akun } = await supabaseAdmin
         .from("akun")
         .select("*")
         .eq("token_verifikasi", token)
@@ -104,7 +104,7 @@ export class AuthController {
 
       if (!akun) {
         // Cek jika sudah terverifikasi sebelumnya (Token null tapi email_verified true)
-        const { data: sudahVerif } = await supabase
+        const { data: sudahVerif } = await supabaseAdmin
           .from("akun")
           .select("*")
           .is("token_verifikasi", null)
@@ -118,7 +118,7 @@ export class AuthController {
       }
 
       // Update Database: Hapus token, set verified = true
-      await supabase
+      await supabaseAdmin
         .from("akun")
         .update({ email_verified: true })
         .eq("id_akun", akun.id_akun);
@@ -151,7 +151,7 @@ export class AuthController {
       const { email } = req.body;
       if (!email) return res.status(400).json({ success: false, message: "Email wajib diisi" });
 
-      const { data: akun } = await supabase
+      const { data: akun } = await supabaseAdmin
         .from("akun")
         .select("*")
         .eq("email", email)
@@ -164,7 +164,7 @@ export class AuthController {
       const newToken = crypto.randomBytes(32).toString("hex"); // Atau uuidv4()
 
       // Update di DB
-      await supabase
+      await supabaseAdmin
         .from("akun")
         .update({ token_verifikasi: newToken })
         .eq("id_akun", akun.id_akun);
@@ -191,7 +191,7 @@ export class AuthController {
   static async checkVerificationStatus(req, res) {
     const { token } = req.params;
     try {
-      const { data: akun } = await supabase
+      const { data: akun } = await supabaseAdmin
         .from("akun")
         .select("email_verified")
         .eq("token_verifikasi", token)
@@ -211,7 +211,7 @@ export class AuthController {
       const { email, password } = req.body;
 
       // 1. Ambil Data Akun & Perusahaan
-      const { data: akun, error } = await supabase
+      const { data: akun, error } = await supabaseAdmin
         .from("akun")
         .select("*, perusahaan:perusahaan(*)")
         .eq("email", email)
@@ -231,7 +231,7 @@ export class AuthController {
         statusPerusahaanAktif = akun.perusahaan.status_aktif;
       } else {
         // Fallback jika join tidak jalan/structure beda
-        const { data: pt } = await supabase.from("perusahaan").select("status_aktif").eq("id_perusahaan", akun.id_perusahaan).single();
+        const { data: pt } = await supabaseAdmin.from("perusahaan").select("status_aktif").eq("id_perusahaan", akun.id_perusahaan).single();
         if (pt) statusPerusahaanAktif = pt.status_aktif;
       }
 
@@ -250,12 +250,19 @@ export class AuthController {
 
       // Bersihkan token verifikasi saat user login pertama kali
       if (akun.token_verifikasi) {
-        await supabase
+        await supabaseAdmin
           .from("akun")
           .update({ token_verifikasi: null })
           .eq("id_akun", akun.id_akun);
       }
-
+      // GENERATE CSRF TOKEN SAAT LOGIN
+      const csrfToken = crypto.randomBytes(32).toString("hex");
+      res.cookie("XSRF-TOKEN", csrfToken, {
+        httpOnly: false, // Frontend butuh akses ini
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+        maxAge: 24 * 60 * 60 * 1000, // Samakan dengan umur token JWT
+      });
       // 6. Buat Token JWT
       const token = jwt.sign(
         { id_akun: akun.id_akun, role: akun.id_jabatan, id_perusahaan: akun.id_perusahaan },
@@ -333,7 +340,7 @@ export class AuthController {
       if (!email) return res.status(400).json({ message: "Email wajib diisi" });
 
       // 1. Cari user berdasarkan email
-      const { data: akun } = await supabase
+      const { data: akun } = await supabaseAdmin
         .from("akun")
         .select("id_akun, email, username")
         .ilike("email", email) // Case insensitive
@@ -349,7 +356,7 @@ export class AuthController {
       const resetToken = uuidv4();
 
       // 4. Update Database
-      const { error } = await supabase
+      const { error } = await supabaseAdmin
         .from("akun")
         .update({ token_reset: resetToken })
         .eq("id_akun", akun.id_akun);
@@ -390,11 +397,11 @@ export class AuthController {
       const { token } = req.params;
       const { password } = req.body;
 
-      const { data: akun } = await supabase.from("akun").select("*").eq("token_reset", token).maybeSingle();
+      const { data: akun } = await supabaseAdmin.from("akun").select("*").eq("token_reset", token).maybeSingle();
       if (!akun) return res.status(400).json({ message: "Token invalid atau expired" });
 
       const hashed = await bcrypt.hash(password, 10);
-      await supabase.from("akun").update({ password: hashed, token_reset: null }).eq("id_akun", akun.id_akun);
+      await supabaseAdmin.from("akun").update({ password: hashed, token_reset: null }).eq("id_akun", akun.id_akun);
 
       await logActivity({
         req: req,

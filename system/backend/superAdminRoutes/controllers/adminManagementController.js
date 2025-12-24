@@ -1,5 +1,5 @@
 // backend/superAdminRoutes/controllers/adminManagementController.js
-import { supabase } from "../../config/db.js"; // IMPORT DARI DB.JS
+import { supabaseAdmin } from "../../config/db.js"; // IMPORT DARI DB.JS
 import bcrypt from "bcryptjs";
 import crypto from "crypto"; // Tambahan untuk generate password
 import { sendEmail } from "../../utils/emailService.js"; // Pastikan path utils benar
@@ -12,7 +12,7 @@ export const getAllAdmins = async (req, res) => {
     const search = req.query.search || "";
     const offset = (page - 1) * limit;
 
-    let query = supabase
+    let query = supabaseAdmin
       .from("akun")
       .select(`
         id_akun, username, email, id_perusahaan, status_akun,
@@ -59,7 +59,7 @@ export const createAdmin = async (req, res) => {
     }
 
     // 2. Cek Duplikat Email di tabel 'akun'
-    const { data: existing } = await supabase
+    const { data: existing } = await supabaseAdmin
       .from("akun")
       .select("id_akun")
       .eq("email", email)
@@ -78,7 +78,7 @@ export const createAdmin = async (req, res) => {
 
     // 5. Insert ke tabel 'akun' sesuai Schema
     // id_akun akan otomatis di-generate oleh database (gen_random_uuid())
-    const { data: newAdmin, error } = await supabase
+    const { data: newAdmin, error } = await supabaseAdmin
       .from("akun")
       .insert([{
         username: username,
@@ -133,7 +133,8 @@ export const createAdmin = async (req, res) => {
       </div>
     `;
 
-    await sendEmail(email, "Akses Admin Baru KitaPresensi", htmlContent);
+    // Tambahkan 'true' di akhir
+    await sendEmail(email, "Akses Admin Baru KitaPresensi", htmlContent, true);
 
     res.status(201).json({
       message: "Admin berhasil dibuat. Password telah dikirim ke email ybs."
@@ -147,8 +148,8 @@ export const createAdmin = async (req, res) => {
 
 export const deleteAdmin = async (req, res) => {
   try {
-    const { id } = req.params;
-    const { error } = await supabase.from("akun").delete().eq("id_akun", id);
+    const { id_akun } = req.params;
+    const { error } = await supabaseAdmin.from("akun").delete().eq("id_akun", id);
 
     if (error) throw error;
     res.json({ message: "Akun admin berhasil dihapus" });

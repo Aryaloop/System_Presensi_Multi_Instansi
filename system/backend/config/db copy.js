@@ -21,13 +21,15 @@ if (!supabaseUrl || !supabaseKey) {
 // 1. CLIENT STANDARD (Untuk Auth, User, Admin Routes)
 // ---------------------------------------------------------
 // Gunakan ini untuk interaksi user biasa. Menghormati aturan RLS database.
-// Kamu punya dua client:
-export const supabase = createClient(supabaseUrl, supabaseKey); // Client Standar (Kena RLS)
+export const supabase = createClient(supabaseUrl, supabaseKey);
+
 // ---------------------------------------------------------
 // 2. CLIENT ADMIN (Untuk Scheduler, Logger, CronJob)
 // ---------------------------------------------------------
 // Gunakan ini HANYA untuk background process. Bisa baca/hapus semua data.
-export const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey); // Client Admin (Bypass RLS)
+export const supabaseAdmin = supabaseServiceKey 
+  ? createClient(supabaseUrl, supabaseServiceKey) 
+  : null;
 
 if (!supabaseAdmin) {
   console.warn(" PERINGATAN: SUPABASE_SERVICE_KEY belum diset. Fitur Scheduler mungkin gagal.");

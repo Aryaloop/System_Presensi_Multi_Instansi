@@ -130,7 +130,7 @@ export default function CardAbsenGPS() {
       queryClient.invalidateQueries({ queryKey: ["kehadiran"] });
       
     } catch (err) {
-      const msg = err.response?.data?.message || err.message || "Gagal Absen";
+      const msg = err.response?.data?.message || err.message || "Gagal Absen GPS Mati";
       Swal.fire("Gagal", msg, "error");
     } finally {
       setLoading(false);

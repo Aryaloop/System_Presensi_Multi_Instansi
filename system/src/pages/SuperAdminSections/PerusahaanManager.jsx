@@ -14,8 +14,14 @@ export default function PerusahaanManager() {
 
   const [showForm, setShowForm] = useState(false);
   const [editMode, setEditMode] = useState(false);
-  const [formData, setFormData] = useState({ id_perusahaan: "", nama_perusahaan: "", alamat: "", status: "Aktif", status_aktif: true });
-
+  const [formData, setFormData] = useState({
+    id_perusahaan: "",
+    nama_perusahaan: "",
+    alamat: "",
+    status: "Aktif",
+    status_aktif: true,
+    id_paket: "" // <--- Untuk menampung pilihan paket
+  });
   const handleSearchChange = (e) => {
     setSearch(e.target.value);
     setPage(1);
@@ -49,18 +55,34 @@ export default function PerusahaanManager() {
   const aktif = perusahaan.filter(p => p.status_aktif === true).length;
   const suspend = perusahaan.filter(p => p.status_aktif === false).length;
   const pending = perusahaan.filter(p => p.status_aktif === null || p.status_aktif === undefined).length;
-
+  const { data: listPaket } = useQuery({
+    queryKey: ["listPaket"],
+    queryFn: async () => {
+      const res = await axios.get("/api/superadmin/paket-langganan");
+      return res.data; // Array paket
+    }
+  });
   // --- Logic Handler (Save, Delete, Toggle) ---
   const handleSave = async (e) => {
     e.preventDefault();
     try {
       const status_aktif = formData.status === "Aktif" ? true : formData.status === "Suspend" ? false : null;
-      const payload = { ...formData, status_aktif };
+
+      // Payload yang dikirim ke backend
+      const payload = {
+        ...formData,
+        status_aktif,
+        // Jika editMode & id_paket kosong, jangan kirim id_paket (biar tanggal tidak berubah)
+        id_paket: formData.id_paket || undefined
+      };
 
       if (!editMode) {
+        // Mode Create: Wajib pilih paket
+        if (!formData.id_paket) return Swal.fire("Error", "Pilih paket langganan!", "error");
         await axios.post("/api/superadmin/perusahaan", payload);
-        Swal.fire("Berhasil", "Perusahaan ditambahkan", "success");
+        Swal.fire("Berhasil", "Perusahaan dibuat & paket aktif", "success");
       } else {
+        // Mode Edit: id_paket opsional (hanya kalau mau perpanjang)
         await axios.put(`/api/superadmin/perusahaan/${formData.id_perusahaan}`, payload);
         Swal.fire("Berhasil", "Data diperbarui", "success");
       }
@@ -70,6 +92,7 @@ export default function PerusahaanManager() {
       Swal.fire("Gagal", err.response?.data?.message || "Terjadi kesalahan", "error");
     }
   };
+
   const handleToggleStatus = async (id, currentStatus) => {
     try {
       await axios.put(`/api/superadmin/suspend/${id}`, { status: !currentStatus });
@@ -97,7 +120,7 @@ export default function PerusahaanManager() {
   };
 
   const openCreate = () => {
-    setFormData({ id_perusahaan: "", nama_perusahaan: "", alamat: "", status: "Aktif", status_aktif: true });
+    setFormData({ id_perusahaan: "", nama_perusahaan: "", alamat: "", status: "Aktif", status_aktif: true, id_paket: "" });
     setEditMode(false);
     setShowForm(true);
   };
@@ -109,7 +132,8 @@ export default function PerusahaanManager() {
       nama_perusahaan: item.nama_perusahaan,
       alamat: item.alamat,
       status: statusLabel,
-      status_aktif: item.status_aktif
+      status_aktif: item.status_aktif,
+      id_paket: "" // Reset paket saat buka edit (kosong artinya tidak perpanjang)
     });
     setEditMode(true);
     setShowForm(true);
@@ -160,6 +184,7 @@ export default function PerusahaanManager() {
                 <th className="px-6 py-3 font-semibold">Alamat</th>
                 <th className="px-6 py-3 font-semibold">Status</th>
                 <th className="px-6 py-3 font-semibold text-center">Aksi</th>
+                <th className="px-6 py-3 font-semibold text-center">Expired</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
@@ -206,6 +231,11 @@ export default function PerusahaanManager() {
                         </IconButton> */}
                       </div>
                     </td>
+                    <td>
+                      <div className="text-xs text-gray-500">
+                        Exp: {new Date(p.tanggal_berakhir_langganan).toLocaleDateString('id-ID')}
+                      </div>
+                    </td>
                   </tr>
                 ))
               )}
@@ -237,34 +267,68 @@ export default function PerusahaanManager() {
         </div>
       </div>
 
+      {/* MODAL FORM */}
       {showForm && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
           <div className="bg-white w-full max-w-md rounded-xl shadow-lg overflow-hidden animate-fadeIn">
             <div className="px-5 py-4 border-b flex items-center justify-between bg-gray-50">
-              <h3 className="font-bold text-lg text-gray-800">{editMode ? "Edit Perusahaan" : "Tambah Perusahaan"}</h3>
+              <h3 className="font-bold text-lg text-gray-800">{editMode ? "Edit Perusahaan" : "Registrasi Perusahaan Baru"}</h3>
               <button onClick={() => setShowForm(false)} className="text-gray-400 hover:text-gray-600">✕</button>
             </div>
+
             <form onSubmit={handleSave} className="p-6 space-y-4">
+
+              {/* Field Nama & Alamat (Tetap) */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Nama Perusahaan</label>
-                <input className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition" value={formData.nama_perusahaan} onChange={e => setFormData({ ...formData, nama_perusahaan: e.target.value })} placeholder="Contoh: PT. Teknologi Maju" required />
+                <input className="w-full border p-2 rounded-lg" value={formData.nama_perusahaan} onChange={e => setFormData({ ...formData, nama_perusahaan: e.target.value })} required />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Alamat</label>
-                <textarea className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition" rows="3" value={formData.alamat} onChange={e => setFormData({ ...formData, alamat: e.target.value })} placeholder="Alamat lengkap..." />
+                <textarea className="w-full border p-2 rounded-lg" rows="2" value={formData.alamat} onChange={e => setFormData({ ...formData, alamat: e.target.value })} />
               </div>
+
+              {/* --- DROPDOWN PAKET (BAGIAN PENTING) --- */}
+              <div className="bg-indigo-50 p-3 rounded-lg border border-indigo-100">
+                <label className="block text-sm font-bold text-indigo-800 mb-1">
+                  {editMode ? "Perpanjang Langganan (Opsional)" : "Pilih Paket Langganan"}
+                </label>
+                <select
+                  value={formData.id_paket}
+                  onChange={(e) => setFormData({ ...formData, id_paket: e.target.value })}
+                  className="w-full border border-indigo-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none bg-white"
+                  required={!editMode} // Wajib jika Create Baru
+                >
+                  <option value="">{editMode ? "-- Jangan Perpanjang --" : "-- Pilih Paket --"}</option>
+                  {listPaket?.map((pkg) => (
+                    <option key={pkg.id_paket} value={pkg.id_paket}>
+                      {pkg.nama_paket} ({pkg.durasi_hari} Hari) - Rp {parseInt(pkg.harga).toLocaleString('id-ID')}
+                    </option>
+                  ))}
+                </select>
+                {editMode && (
+                  <p className="text-xs text-indigo-600 mt-1">
+                    *Pilih paket hanya jika ingin menambah durasi masa aktif.
+                  </p>
+                )}
+              </div>
+
+              {/* Status Select */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
-                <select value={formData.status} onChange={(e) => setFormData({ ...formData, status: e.target.value })} className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 outline-none bg-white">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Status Akun</label>
+                <select value={formData.status} onChange={(e) => setFormData({ ...formData, status: e.target.value })} className="w-full border p-2 rounded-lg bg-white">
                   <option value="Aktif">Aktif</option>
                   <option value="Suspend">Suspend</option>
-                  <option value="Pending">Pending</option>
                 </select>
               </div>
+
               <div className="flex justify-end gap-3 pt-2">
-                <button type="button" onClick={() => setShowForm(false)} className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50">Batal</button>
-                <button type="submit" className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 shadow-sm">{editMode ? "Simpan Perubahan" : "Simpan"}</button>
+                <button type="button" onClick={() => setShowForm(false)} className="px-4 py-2 text-sm text-gray-700 bg-gray-100 rounded-lg">Batal</button>
+                <button type="submit" className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700">
+                  {editMode ? "Update Data" : "Buat Perusahaan"}
+                </button>
               </div>
+
             </form>
           </div>
         </div>

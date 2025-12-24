@@ -74,6 +74,24 @@ CREATE TABLE public.kehadiran (
   CONSTRAINT kehadiran_id_perusahaan_fkey FOREIGN KEY (id_perusahaan) REFERENCES public.perusahaan(id_perusahaan),
   CONSTRAINT kehadiran_id_akun_fkey FOREIGN KEY (id_akun) REFERENCES public.akun(id_akun)
 );
+CREATE TABLE public.master_paket (
+  id_paket uuid NOT NULL DEFAULT gen_random_uuid(),
+  nama_paket character varying NOT NULL,
+  durasi_hari integer NOT NULL,
+  harga numeric DEFAULT 0,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT master_paket_pkey PRIMARY KEY (id_paket)
+);
+CREATE TABLE public.master_scoring_rules (
+  id_rule uuid NOT NULL DEFAULT gen_random_uuid(),
+  id_perusahaan character varying NOT NULL,
+  kode_rule character varying NOT NULL,
+  nama_rule character varying,
+  poin numeric DEFAULT 0,
+  is_active boolean DEFAULT true,
+  CONSTRAINT master_scoring_rules_pkey PRIMARY KEY (id_rule),
+  CONSTRAINT master_rules_perusahaan_fkey FOREIGN KEY (id_perusahaan) REFERENCES public.perusahaan(id_perusahaan)
+);
 CREATE TABLE public.perusahaan (
   id_perusahaan character varying NOT NULL,
   nama_perusahaan character varying NOT NULL,
@@ -83,16 +101,22 @@ CREATE TABLE public.perusahaan (
   radius_m integer DEFAULT 150,
   logo_perusahaan text,
   status_aktif boolean DEFAULT true,
+  tanggal_berakhir_langganan timestamp with time zone,
+  paket_langganan character varying,
   CONSTRAINT perusahaan_pkey PRIMARY KEY (id_perusahaan)
 );
 CREATE TABLE public.score (
   id_score uuid NOT NULL DEFAULT gen_random_uuid(),
   id_kehadiran uuid NOT NULL,
-  nilai_score numeric,
-  keterangan character varying,
+  id_akun uuid NOT NULL,
+  id_rule uuid,
+  nilai_score numeric NOT NULL,
+  keterangan text,
   created_at timestamp with time zone DEFAULT now(),
   CONSTRAINT score_pkey PRIMARY KEY (id_score),
-  CONSTRAINT score_id_kehadiran_fkey FOREIGN KEY (id_kehadiran) REFERENCES public.kehadiran(id_kehadiran)
+  CONSTRAINT score_id_kehadiran_fkey FOREIGN KEY (id_kehadiran) REFERENCES public.kehadiran(id_kehadiran),
+  CONSTRAINT score_id_akun_fkey FOREIGN KEY (id_akun) REFERENCES public.akun(id_akun),
+  CONSTRAINT score_id_rule_fkey FOREIGN KEY (id_rule) REFERENCES public.master_scoring_rules(id_rule)
 );
 CREATE TABLE public.shift (
   id_shift character varying NOT NULL,
